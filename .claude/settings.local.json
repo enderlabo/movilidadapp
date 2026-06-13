@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(flutter analyze *)",
+      "PowerShell(dart pub *)",
+      "PowerShell($env:PATH += \";C:\\\\Users\\\\devel\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\bin\"; cd \"C:\\\\Users\\\\devel\\\\Documents\\\\Developer\\\\movilidadapp\"; flutterfire configure --project=movilidadapp-cb57b --platforms=windows,web,android --yes 2>&1 | Select-Object -First 50)",
+      "PowerShell(npm *)",
+      "PowerShell(firebase login *)",
+      "PowerShell(Copy-Item *)"
+    ]
+  }
+}
