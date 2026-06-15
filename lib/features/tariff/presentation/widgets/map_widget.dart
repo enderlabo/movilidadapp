@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../routes/domain/entities/route.dart';
 import '../viewmodels/tariff_viewmodel.dart';
 
-enum _MapStyle { mapa, satelite }
-
-/// Widget de mapa cross-platform usando flutter_map + OpenStreetMap / Esri.
+/// Widget de mapa cross-platform usando flutter_map + OpenStreetMap.
+/// Funciona en Android, iOS, Windows, Web, macOS y Linux sin configuración extra.
 class MapWidget extends ConsumerStatefulWidget {
   const MapWidget({super.key});
 
@@ -18,30 +18,12 @@ class MapWidget extends ConsumerStatefulWidget {
 
 class _MapWidgetState extends ConsumerState<MapWidget> {
   final _mapController = MapController();
-  _MapStyle _style = _MapStyle.mapa;
-
-  // Coordenadas de la base de operaciones (igual que _kOrigenFijo en viewmodel)
-  static const _kBase = LatLng(-12.0473, -76.9721);
 
   @override
   void dispose() {
     _mapController.dispose();
     super.dispose();
   }
-
-  void _locateBase() {
-    _mapController.move(_kBase, 16);
-  }
-
-  void _toggleStyle() {
-    setState(() {
-      _style = _style == _MapStyle.mapa ? _MapStyle.satelite : _MapStyle.mapa;
-    });
-  }
-
-  String get _tileUrl => _style == _MapStyle.mapa
-      ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
   @override
   Widget build(BuildContext context) {
@@ -59,13 +41,13 @@ class _MapWidgetState extends ConsumerState<MapWidget> {
         FlutterMap(
           mapController: _mapController,
           options: const MapOptions(
-            initialCenter: LatLng(-12.0482, -76.9736),
+            initialCenter: LatLng(-12.0482, -76.9736), // Santa Anita — base de operaciones
             initialZoom: 12,
           ),
           children: [
             TileLayer(
-              key: ValueKey(_style),
-              urlTemplate: _tileUrl,
+              urlTemplate:
+                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.laborit.tarifario_movilidad',
             ),
             _buildPolylineLayer(state, notifier.rutasCargadas),
@@ -93,12 +75,7 @@ class _MapWidgetState extends ConsumerState<MapWidget> {
         Positioned(
           right: AppTheme.spacingMd,
           bottom: AppTheme.spacingXl,
-          child: _MapControls(
-            controller: _mapController,
-            style: _style,
-            onLocateBase: _locateBase,
-            onToggleStyle: _toggleStyle,
-          ),
+          child: _ZoomControls(controller: _mapController),
         ),
       ],
     );
@@ -147,12 +124,14 @@ class _MapWidgetState extends ConsumerState<MapWidget> {
 
   Widget _buildPolylineLayer(
       TariffState state, List<RouteResult> rutasCargadas) {
+    // Muestra la ruta mientras haya rutas cargadas, sin importar el estado de cálculo
     if (rutasCargadas.isEmpty) return const SizedBox.shrink();
 
     final polylines = rutasCargadas.asMap().entries.map((e) {
       final isPrimary = e.key == 0;
       return Polyline(
-        points: e.value.polilinea.map((p) => LatLng(p.lat, p.lng)).toList(),
+        points:
+            e.value.polilinea.map((p) => LatLng(p.lat, p.lng)).toList(),
         color: isPrimary
             ? AppTheme.verdePrimario
             : AppTheme.verdeSecundario.withValues(alpha: 0.5),
@@ -164,7 +143,7 @@ class _MapWidgetState extends ConsumerState<MapWidget> {
   }
 }
 
-// ─── Widgets auxiliares ────────────────────────────────────────────────────────
+// ─── Widgets auxiliares del mapa ──────────────────────────────────────────────
 
 class _MapBadge extends StatelessWidget {
   final String label;
@@ -180,7 +159,8 @@ class _MapBadge extends StatelessWidget {
             Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
       child: Text(
@@ -195,119 +175,35 @@ class _MapBadge extends StatelessWidget {
   }
 }
 
-class _MapControls extends StatelessWidget {
+class _ZoomControls extends StatelessWidget {
   final MapController controller;
-  final _MapStyle style;
-  final VoidCallback onLocateBase;
-  final VoidCallback onToggleStyle;
-
-  const _MapControls({
-    required this.controller,
-    required this.style,
-    required this.onLocateBase,
-    required this.onToggleStyle,
-  });
+  const _ZoomControls({required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    final isSat = style == _MapStyle.satelite;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Ubicar base ────────────────────────────────────────────────────
-        _ControlButton(
-          tooltip: 'Ubicar base',
-          onPressed: onLocateBase,
-          child: const Icon(Icons.my_location, size: 20),
-        ),
-
-        const SizedBox(height: AppTheme.spacingSm),
-
-        // ── Toggle 2D / Satélite ───────────────────────────────────────────
-        _ControlButton(
-          tooltip: isSat ? 'Vista mapa' : 'Vista satélite',
-          onPressed: onToggleStyle,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isSat ? Icons.map_outlined : Icons.satellite_alt_outlined,
-                size: 18,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                isSat ? '2D' : 'SAT',
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Courier New',
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.add, size: 20),
+            onPressed: () => controller.move(
+              controller.camera.center,
+              controller.camera.zoom + 1,
+            ),
+            tooltip: 'Acercar',
           ),
-        ),
-
-        const SizedBox(height: AppTheme.spacingSm),
-
-        // ── Zoom + / - ────────────────────────────────────────────────────
-        GlassCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add, size: 20),
-                onPressed: () => controller.move(
-                  controller.camera.center,
-                  controller.camera.zoom + 1,
-                ),
-                tooltip: 'Acercar',
-              ),
-              const Divider(height: 1),
-              IconButton(
-                icon: const Icon(Icons.remove, size: 20),
-                onPressed: () => controller.move(
-                  controller.camera.center,
-                  controller.camera.zoom - 1,
-                ),
-                tooltip: 'Alejar',
-              ),
-            ],
+          const Divider(height: 1),
+          IconButton(
+            icon: const Icon(Icons.remove, size: 20),
+            onPressed: () => controller.move(
+              controller.camera.center,
+              controller.camera.zoom - 1,
+            ),
+            tooltip: 'Alejar',
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ControlButton extends StatelessWidget {
-  final Widget child;
-  final VoidCallback onPressed;
-  final String tooltip;
-
-  const _ControlButton({
-    required this.child,
-    required this.onPressed,
-    required this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GlassCard(
-        padding: EdgeInsets.zero,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          child: SizedBox(
-            width: 44,
-            height: 48,
-            child: Center(child: child),
-          ),
-        ),
+        ],
       ),
     );
   }
