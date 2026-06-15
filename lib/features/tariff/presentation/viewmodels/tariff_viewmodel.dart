@@ -130,14 +130,13 @@ class TariffViewModel extends _$TariffViewModel {
     final config = ref.read(tarifaConfigNotifierProvider).valueOrNull ??
         TarifaConfig.defaults;
 
-    final tarifaPorKm = vehiculo.categoria == CategoriaVehiculo.pequeno
-        ? config.tarifaPequeno
-        : config.tarifaGrande;
+    final tarifaPorKm = config.tarifaPara(vehiculo.id);
 
     final pesoKg = input.pesoKg;
-    final costoKilometraje = tarifaPorKm * distanciaKm * 2; // × 2: entrega y recojo
-    final costoTiempo = costoKilometraje * config.factorTiempo;
-    final costoPeso = pesoKg * config.tarifaPorKg;
+    final costoBaseKm = tarifaPorKm * distanciaKm;
+    final costoKilometraje = costoBaseKm * 2;           // × 2: ida y vuelta
+    final costoTiempo     = costoBaseKm * config.factorTiempo * 2; // × 2: ida y vuelta
+    final costoPeso       = pesoKg * config.tarifaPorKg * 2;       // × 2: ida y vuelta
     final precioTotal = costoKilometraje + costoTiempo + costoPeso;
 
     final cotizacion = CotizacionTarifario(

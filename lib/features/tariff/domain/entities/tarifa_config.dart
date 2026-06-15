@@ -1,47 +1,62 @@
 class TarifaConfig {
-  final double tarifaPequeno;
-  final double tarifaGrande;
+  final Map<String, double> tarifasPorVehiculo;
+  final double tarifaDefault;
   final double factorTiempo;
   final double tarifaPorKg;
 
   const TarifaConfig({
-    required this.tarifaPequeno,
-    required this.tarifaGrande,
+    this.tarifasPorVehiculo = const {},
+    this.tarifaDefault = 10.0,
     required this.factorTiempo,
     required this.tarifaPorKg,
   });
 
   static const defaults = TarifaConfig(
-    tarifaPequeno: 10.0,
-    tarifaGrande: 12.0,
+    tarifaDefault: 10.0,
     factorTiempo: 0.20,
     tarifaPorKg: 0.10,
   );
 
+  double tarifaPara(String vehiculoId) =>
+      tarifasPorVehiculo[vehiculoId] ?? tarifaDefault;
+
   TarifaConfig copyWith({
-    double? tarifaPequeno,
-    double? tarifaGrande,
+    Map<String, double>? tarifasPorVehiculo,
+    double? tarifaDefault,
     double? factorTiempo,
     double? tarifaPorKg,
   }) =>
       TarifaConfig(
-        tarifaPequeno: tarifaPequeno ?? this.tarifaPequeno,
-        tarifaGrande: tarifaGrande ?? this.tarifaGrande,
+        tarifasPorVehiculo: tarifasPorVehiculo ?? this.tarifasPorVehiculo,
+        tarifaDefault: tarifaDefault ?? this.tarifaDefault,
         factorTiempo: factorTiempo ?? this.factorTiempo,
         tarifaPorKg: tarifaPorKg ?? this.tarifaPorKg,
       );
 
   Map<String, dynamic> toJson() => {
-        'tarifaPequeno': tarifaPequeno,
-        'tarifaGrande': tarifaGrande,
+        'tarifasPorVehiculo': tarifasPorVehiculo,
+        'tarifaDefault': tarifaDefault,
         'factorTiempo': factorTiempo,
         'tarifaPorKg': tarifaPorKg,
       };
 
-  factory TarifaConfig.fromJson(Map<String, dynamic> m) => TarifaConfig(
-        tarifaPequeno: (m['tarifaPequeno'] as num? ?? 10.0).toDouble(),
-        tarifaGrande: (m['tarifaGrande'] as num? ?? 12.0).toDouble(),
-        factorTiempo: (m['factorTiempo'] as num? ?? 0.20).toDouble(),
-        tarifaPorKg: (m['tarifaPorKg'] as num? ?? 0.10).toDouble(),
-      );
+  factory TarifaConfig.fromJson(Map<String, dynamic> m) {
+    final rawMap = m['tarifasPorVehiculo'] as Map<String, dynamic>?;
+    final tarifasPorVehiculo = rawMap != null
+        ? rawMap.map((k, v) => MapEntry(k, (v as num).toDouble()))
+        : <String, double>{};
+
+    // Backward compat: if old format used tarifaPequeno/Grande, use tarifaPequeno as default
+    final tarifaDefault = (m['tarifaDefault'] as num? ??
+            m['tarifaPequeno'] as num? ??
+            10.0)
+        .toDouble();
+
+    return TarifaConfig(
+      tarifasPorVehiculo: tarifasPorVehiculo,
+      tarifaDefault: tarifaDefault,
+      factorTiempo: (m['factorTiempo'] as num? ?? 0.20).toDouble(),
+      tarifaPorKg: (m['tarifaPorKg'] as num? ?? 0.10).toDouble(),
+    );
+  }
 }

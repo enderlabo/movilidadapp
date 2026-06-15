@@ -14,8 +14,9 @@ class InfoTarifasScreen extends ConsumerWidget {
         TarifaConfig.defaults;
     final pct = (config.factorTiempo * 100).toStringAsFixed(0);
     final vehiculos = ref.watch(vehiculosProvider).valueOrNull ?? [];
-    final nombre0 = vehiculos.isNotEmpty ? vehiculos[0].nombre : 'Vehículo 1';
-    final nombre1 = vehiculos.length > 1  ? vehiculos[1].nombre : 'Vehículo 2';
+
+    final colors = [AppTheme.azulPrimario, AppTheme.verdePrimario];
+    final icons = [Icons.local_shipping_outlined, Icons.fire_truck_outlined];
 
     return Scaffold(
       appBar: AppBar(
@@ -29,22 +30,22 @@ class InfoTarifasScreen extends ConsumerWidget {
             const _SectionTitle(label: 'TARIFAS VIGENTES'),
             const SizedBox(height: AppTheme.spacingMd),
 
-            _TarifaCard(
-              icon: Icons.local_shipping_outlined,
-              titulo: nombre0,
-              tarifa: 'S/ ${config.tarifaPequeno.toStringAsFixed(0)}',
-              unidad: 'por km',
-              color: AppTheme.azulPrimario,
-            ),
-            const SizedBox(height: AppTheme.spacingMd),
-
-            _TarifaCard(
-              icon: Icons.fire_truck_outlined,
-              titulo: nombre1,
-              tarifa: 'S/ ${config.tarifaGrande.toStringAsFixed(0)}',
-              unidad: 'por km',
-              color: AppTheme.verdePrimario,
-            ),
+            if (vehiculos.isEmpty)
+              const Text(
+                'Sin vehículos configurados',
+                style: TextStyle(color: AppTheme.textoMuted, fontFamily: 'Courier New', fontSize: 13),
+              )
+            else
+              for (int i = 0; i < vehiculos.length; i++) ...[
+                _TarifaCard(
+                  icon: icons[i % icons.length],
+                  titulo: vehiculos[i].nombre,
+                  tarifa: 'S/ ${config.tarifaPara(vehiculos[i].id).toStringAsFixed(0)}',
+                  unidad: 'por km',
+                  color: colors[i % colors.length],
+                ),
+                if (i < vehiculos.length - 1) const SizedBox(height: AppTheme.spacingMd),
+              ],
 
             const SizedBox(height: AppTheme.spacingXl),
             const _SectionTitle(label: 'FACTORES ADICIONALES'),
@@ -106,7 +107,7 @@ class InfoTarifasScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$nombre0 · 5 km de distancia',
+                    '${vehiculos.isNotEmpty ? vehiculos[0].nombre : 'Vehículo'} · 5 km de distancia',
                     style: TextStyle(
                       color: AppTheme.textoSecundario,
                       fontFamily: 'Courier New',
