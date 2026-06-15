@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/tariff/presentation/screens/tariff_screen.dart';
+import '../features/tariff/presentation/screens/info_tarifas_screen.dart';
+import '../features/historial/presentation/screens/historial_screen.dart';
 
 /// Rutas nombradas — evita strings sueltos por toda la app (DRY).
 abstract final class AppRoutes {
@@ -11,6 +13,7 @@ abstract final class AppRoutes {
   static const historialDetalle = '/historial/:id';
   static const vehiculos = '/vehiculos';
   static const vehiculoForm = '/vehiculos/form';
+  static const peajes = '/peajes';
 }
 
 abstract final class AppRouter {
@@ -36,12 +39,17 @@ abstract final class AppRouter {
       GoRoute(
         path: AppRoutes.historial,
         name: 'historial',
-        builder: (context, state) => const _PlaceholderScreen(title: 'Historial'),
+        builder: (context, state) => const HistorialScreen(),
       ),
       GoRoute(
         path: AppRoutes.vehiculos,
         name: 'vehiculos',
         builder: (context, state) => const _PlaceholderScreen(title: 'Vehículos'),
+      ),
+      GoRoute(
+        path: AppRoutes.peajes,
+        name: 'peajes',
+        builder: (context, state) => const InfoTarifasScreen(),
       ),
     ],
   );

@@ -1,142 +1,170 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../routes/domain/entities/route.dart';
 import '../viewmodels/tariff_viewmodel.dart';
 
-/// Widget de mapa adaptativo.
-///
-/// kIsWeb == true  → usa _WebMapWidget  (Google Maps JS API via HtmlElementView)
-/// kIsWeb == false → usa _NativeMapWidget (google_maps_flutter SDK)
-///
-/// El dominio no sabe cuál se usa — es un detalle de presentación.
-class MapWidget extends ConsumerWidget {
+enum _MapStyle { mapa, satelite }
+
+/// Widget de mapa cross-platform usando flutter_map + OpenStreetMap / Esri.
+class MapWidget extends ConsumerStatefulWidget {
   const MapWidget({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return kIsWeb ? const _WebMapWidget() : const _NativeMapWidget();
-  }
+  ConsumerState<MapWidget> createState() => _MapWidgetState();
 }
 
-// ─── Mapa nativo (mobile + desktop) ──────────────────────────────────────────
+class _MapWidgetState extends ConsumerState<MapWidget> {
+  final _mapController = MapController();
+  _MapStyle _style = _MapStyle.mapa;
 
-class _NativeMapWidget extends ConsumerStatefulWidget {
-  const _NativeMapWidget();
+  // Coordenadas de la base de operaciones (igual que _kOrigenFijo en viewmodel)
+  static const _kBase = LatLng(-12.0473, -76.9721);
 
   @override
-  ConsumerState<_NativeMapWidget> createState() => _NativeMapWidgetState();
-}
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
 
-class _NativeMapWidgetState extends ConsumerState<_NativeMapWidget> {
-  // GoogleMapController? _controller;  // se inicializa al onMapCreated
+  void _locateBase() {
+    _mapController.move(_kBase, 16);
+  }
+
+  void _toggleStyle() {
+    setState(() {
+      _style = _style == _MapStyle.mapa ? _MapStyle.satelite : _MapStyle.mapa;
+    });
+  }
+
+  String get _tileUrl => _style == _MapStyle.mapa
+      ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(tariffViewModelProvider);
+    final notifier = ref.read(tariffViewModelProvider.notifier);
 
-    // TODO: reemplazar con GoogleMap() real cuando se agreguen las dependencias
-    // GoogleMap(
-    //   initialCameraPosition: const CameraPosition(
-    //     target: LatLng(-12.0464, -77.0428), // Lima centro
-    //     zoom: 12,
-    //   ),
-    //   onMapCreated: (controller) => _controller = controller,
-    //   polylines: _buildPolylines(state),
-    //   markers: _buildMarkers(state),
-    //   myLocationEnabled: false,
-    //   zoomControlsEnabled: false,
-    //   mapToolbarEnabled: false,
-    // )
+    ref.listen(tariffViewModelProvider, (_, next) {
+      next.whenOrNull(routesLoaded: _fitRoutes);
+    });
+
+    final input = ref.watch(tariffInputNotifierProvider);
 
     return Stack(
       children: [
-        // Placeholder del mapa (reemplazar con GoogleMap real)
-        Container(
-          color: const Color(0xFFE8F0F7),
-          child: CustomPaint(
-            painter: _MapPlaceholderPainter(),
-            child: const SizedBox.expand(),
+        FlutterMap(
+          mapController: _mapController,
+          options: const MapOptions(
+            initialCenter: LatLng(-12.0482, -76.9736),
+            initialZoom: 12,
           ),
+          children: [
+            TileLayer(
+              key: ValueKey(_style),
+              urlTemplate: _tileUrl,
+              userAgentPackageName: 'com.laborit.tarifario_movilidad',
+            ),
+            _buildPolylineLayer(state, notifier.rutasCargadas),
+            _buildMarkerLayer(input),
+          ],
         ),
 
-        // Indicador de rutas cargadas
         state.maybeWhen(
           routesLoaded: (routes) => Positioned(
             top: AppTheme.spacingMd,
             right: AppTheme.spacingMd,
-            child: _MapBadge(
-              label: '${routes.length} rutas encontradas',
-            ),
+            child: _MapBadge(label: '${routes.length} rutas encontradas'),
           ),
-          success: (quotation) => Positioned(
+          success: (cotizacion) => Positioned(
             top: AppTheme.spacingMd,
             right: AppTheme.spacingMd,
             child: _MapBadge(
-              label: '${quotation.resultadosPorRuta.length} rutas calculadas',
+              label: cotizacion.precioDisplay,
               color: AppTheme.azulPrimario,
             ),
           ),
           orElse: () => const SizedBox.shrink(),
         ),
 
-        // Controles de zoom (custom para coincidir con el diseño glass)
         Positioned(
           right: AppTheme.spacingMd,
           bottom: AppTheme.spacingXl,
-          child: _ZoomControls(),
+          child: _MapControls(
+            controller: _mapController,
+            style: _style,
+            onLocateBase: _locateBase,
+            onToggleStyle: _toggleStyle,
+          ),
         ),
       ],
     );
   }
-}
 
-// ─── Mapa web (JS Interop) ────────────────────────────────────────────────────
-
-class _WebMapWidget extends ConsumerStatefulWidget {
-  const _WebMapWidget();
-
-  @override
-  ConsumerState<_WebMapWidget> createState() => _WebMapWidgetState();
-}
-
-class _WebMapWidgetState extends ConsumerState<_WebMapWidget> {
-  // In Flutter Web the map is mounted via HtmlElementView.
-  // ignore: unused_field — used in the HtmlElementView TODO below.
-  static const _viewType = 'google-maps-view';
-
-  @override
-  Widget build(BuildContext context) {
-    // TODO: implementar cuando se configure el proyecto Flutter Web
-    // En web real:
-    // 1. Registrar el factory en main.dart:
-    //    ui_web.platformViewRegistry.registerViewFactory(
-    //      _viewType, (id) => _buildMapElement(id),
-    //    );
-    // 2. Usar HtmlElementView aquí:
-    //    return HtmlElementView(viewType: _viewType);
-
-    return Container(
-      color: const Color(0xFFE8F0F7),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.map_outlined, size: 48, color: Color(0xFF90A4AE)),
-            SizedBox(height: 12),
-            Text(
-              'Mapa web — requiere configuración\nde Google Maps JS API',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF78909C), fontSize: 13),
-            ),
-          ],
-        ),
+  void _fitRoutes(List<RouteResult> routes) {
+    if (routes.isEmpty) return;
+    final points = routes
+        .expand((r) => r.polilinea)
+        .map((p) => LatLng(p.lat, p.lng))
+        .toList();
+    if (points.isEmpty) return;
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(points),
+        padding: const EdgeInsets.all(64),
       ),
     );
   }
+
+  Widget _buildMarkerLayer(TariffInput input) {
+    final markers = <Marker>[
+      if (input.origen != null)
+        Marker(
+          point: LatLng(input.origen!.lat, input.origen!.lng),
+          child: const Icon(
+            Icons.location_on,
+            color: AppTheme.verdePrimario,
+            size: 36,
+            shadows: [Shadow(blurRadius: 6, color: AppTheme.verdeGlow)],
+          ),
+        ),
+      if (input.destino != null)
+        Marker(
+          point: LatLng(input.destino!.lat, input.destino!.lng),
+          child: const Icon(
+            Icons.location_on,
+            color: AppTheme.error,
+            size: 36,
+            shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+          ),
+        ),
+    ];
+    return MarkerLayer(markers: markers);
+  }
+
+  Widget _buildPolylineLayer(
+      TariffState state, List<RouteResult> rutasCargadas) {
+    if (rutasCargadas.isEmpty) return const SizedBox.shrink();
+
+    final polylines = rutasCargadas.asMap().entries.map((e) {
+      final isPrimary = e.key == 0;
+      return Polyline(
+        points: e.value.polilinea.map((p) => LatLng(p.lat, p.lng)).toList(),
+        color: isPrimary
+            ? AppTheme.verdePrimario
+            : AppTheme.verdeSecundario.withValues(alpha: 0.5),
+        strokeWidth: isPrimary ? 4 : 2,
+      );
+    }).toList();
+
+    return PolylineLayer(polylines: polylines);
+  }
 }
 
-// ─── Widgets auxiliares del mapa ──────────────────────────────────────────────
+// ─── Widgets auxiliares ────────────────────────────────────────────────────────
 
 class _MapBadge extends StatelessWidget {
   final String label;
@@ -148,9 +176,10 @@ class _MapBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color?.withValues(alpha: 0.9) ?? Colors.white.withValues(alpha: 0.9),
+        color: color?.withValues(alpha: 0.9) ??
+            Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
@@ -166,48 +195,120 @@ class _MapBadge extends StatelessWidget {
   }
 }
 
-class _ZoomControls extends StatelessWidget {
+class _MapControls extends StatelessWidget {
+  final MapController controller;
+  final _MapStyle style;
+  final VoidCallback onLocateBase;
+  final VoidCallback onToggleStyle;
+
+  const _MapControls({
+    required this.controller,
+    required this.style,
+    required this.onLocateBase,
+    required this.onToggleStyle,
+  });
+
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.add, size: 20),
-            onPressed: () {/* _controller?.animateCamera(CameraUpdate.zoomIn()) */},
-            tooltip: 'Acercar',
+    final isSat = style == _MapStyle.satelite;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ── Ubicar base ────────────────────────────────────────────────────
+        _ControlButton(
+          tooltip: 'Ubicar base',
+          onPressed: onLocateBase,
+          child: const Icon(Icons.my_location, size: 20),
+        ),
+
+        const SizedBox(height: AppTheme.spacingSm),
+
+        // ── Toggle 2D / Satélite ───────────────────────────────────────────
+        _ControlButton(
+          tooltip: isSat ? 'Vista mapa' : 'Vista satélite',
+          onPressed: onToggleStyle,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSat ? Icons.map_outlined : Icons.satellite_alt_outlined,
+                size: 18,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                isSat ? '2D' : 'SAT',
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Courier New',
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
           ),
-          const Divider(height: 1),
-          IconButton(
-            icon: const Icon(Icons.remove, size: 20),
-            onPressed: () {/* _controller?.animateCamera(CameraUpdate.zoomOut()) */},
-            tooltip: 'Alejar',
+        ),
+
+        const SizedBox(height: AppTheme.spacingSm),
+
+        // ── Zoom + / - ────────────────────────────────────────────────────
+        GlassCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add, size: 20),
+                onPressed: () => controller.move(
+                  controller.camera.center,
+                  controller.camera.zoom + 1,
+                ),
+                tooltip: 'Acercar',
+              ),
+              const Divider(height: 1),
+              IconButton(
+                icon: const Icon(Icons.remove, size: 20),
+                onPressed: () => controller.move(
+                  controller.camera.center,
+                  controller.camera.zoom - 1,
+                ),
+                tooltip: 'Alejar',
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _MapPlaceholderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Grid minimalista que simula el mapa mientras no está integrado
-    final paint = Paint()
-      ..color = const Color(0xFFCFDAE7)
-      ..strokeWidth = 0.5;
+class _ControlButton extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onPressed;
+  final String tooltip;
 
-    const step = 40.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
+  const _ControlButton({
+    required this.child,
+    required this.onPressed,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          child: SizedBox(
+            width: 44,
+            height: 48,
+            child: Center(child: child),
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(_) => false;
 }

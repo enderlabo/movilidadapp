@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/platform_utils.dart';
 import '../../../../core/error/failures.dart';
-import '../../domain/entities/tariff_result.dart';
+import '../../../tarifas/domain/entities/cotizacion_tarifario.dart';
 import '../viewmodels/tariff_viewmodel.dart';
 import '../widgets/address_search_field.dart';
 import '../widgets/vehicle_selector.dart';
 import '../widgets/map_widget.dart';
-import '../widgets/route_result_card.dart';
 import '../widgets/toll_review_sheet.dart';
 import '../../../tolls/presentation/viewmodels/toll_viewmodel.dart';
+import '../../../../router/app_router.dart';
+import 'settings_tarifas_sheet.dart';
 
 /// Pantalla principal — punto de entrada de toda la app.
 ///
@@ -37,7 +39,6 @@ class _MobileLayout extends ConsumerWidget {
     final state = ref.watch(tariffViewModelProvider);
 
     final isLoading = state.maybeWhen(
-      loadingRoutes: () => true,
       loadingTariff: () => true,
       orElse: () => false,
     );
@@ -54,13 +55,13 @@ class _MobileLayout extends ConsumerWidget {
           ),
           // Bottom sheet — only shown in success state.
           ...state.maybeWhen(
-            success: (quotation) => [
+            success: (cotizacion) => [
               DraggableScrollableSheet(
                 initialChildSize: 0.4,
                 minChildSize: 0.15,
                 maxChildSize: 0.85,
                 builder: (_, controller) => _ResultBottomSheet(
-                  quotation: quotation,
+                  cotizacion: cotizacion,
                   scrollController: controller,
                 ),
               ),
@@ -77,7 +78,9 @@ class _MobileLayout extends ConsumerWidget {
 class _FloatingInputPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final vm = ref.read(tariffViewModelProvider.notifier);
+    final inputVm = ref.read(tariffInputNotifierProvider.notifier);
+    final resetCount = ref.watch(
+        tariffInputNotifierProvider.select((i) => i.resetCount));
 
     return SafeArea(
       child: Padding(
@@ -87,23 +90,24 @@ class _FloatingInputPanel extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AddressSearchField(
-                hint: 'Punto de salida',
-                icon: Icons.radio_button_checked,
-                iconColor: AppTheme.azulPrimario,
-                onWaypointSelected: vm.setOrigen,
-              ),
+              const _OriginFijaWidget(),
               const _RouteConnector(),
               AddressSearchField(
+                key: ValueKey('destino_$resetCount'),
                 hint: 'Punto de destino',
                 icon: Icons.location_on,
-                iconColor: const Color(0xFFD32F2F),
-                onWaypointSelected: vm.setDestino,
+                iconColor: AppTheme.error,
+                onWaypointSelected: inputVm.setDestino,
               ),
               const SizedBox(height: AppTheme.spacingSm),
-              VehicleSelector(onSelected: vm.setVehiculo),
+              VehicleSelector(
+                key: ValueKey('vehiculo_$resetCount'),
+                onSelected: inputVm.setVehiculo,
+              ),
+              const SizedBox(height: AppTheme.spacingSm),
+              _PesoInputField(key: ValueKey('peso_$resetCount')),
               const SizedBox(height: AppTheme.spacingMd),
-              _CalculateButton(isMobile: true),
+              const _CalculateRow(isMobile: true),
             ],
           ),
         ),
@@ -123,23 +127,28 @@ class _DesktopWebLayout extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
+          children: const [
             Icon(Icons.local_shipping_outlined,
                 color: AppTheme.azulPrimario, size: 20),
-            const SizedBox(width: AppTheme.spacingSm),
-            const Text('Tarifario de movilidad'),
+            SizedBox(width: AppTheme.spacingSm),
+            Text('Tarifario de movilidad'),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.history_outlined),
             tooltip: 'Historial',
-            onPressed: () {/* go_router push historial */},
+            onPressed: () => context.push(AppRoutes.historial),
           ),
           IconButton(
-            icon: const Icon(Icons.toll_outlined),
-            tooltip: 'Catálogo de peajes',
-            onPressed: () {/* go_router push peajes */},
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Información de tarifas',
+            onPressed: () => context.push(AppRoutes.peajes),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Configurar tarifas',
+            onPressed: () => mostrarSettingsTarifas(context),
           ),
           const SizedBox(width: AppTheme.spacingSm),
         ],
@@ -153,7 +162,7 @@ class _DesktopWebLayout extends ConsumerWidget {
           ),
 
           // Divisor
-          VerticalDivider(
+          const VerticalDivider(
             width: 1,
             color: AppTheme.glassBorder,
           ),
@@ -170,7 +179,8 @@ class _LeftPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(tariffViewModelProvider);
-    final vm = ref.read(tariffViewModelProvider.notifier);
+    final inputVm = ref.read(tariffInputNotifierProvider.notifier);
+    final resetCount = ref.watch(tariffInputNotifierProvider.select((i) => i.resetCount));
 
     return Container(
       color: AppTheme.grisClaro,
@@ -183,59 +193,65 @@ class _LeftPanel extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Origen
-                _SectionLabel(label: 'Ruta'),
+                const _SectionLabel(label: 'Ruta'),
                 const SizedBox(height: AppTheme.spacingSm),
-                AddressSearchField(
-                  hint: 'Punto de salida',
-                  icon: Icons.radio_button_checked,
-                  iconColor: AppTheme.azulPrimario,
-                  onWaypointSelected: vm.setOrigen,
-                ),
+                const _OriginFijaWidget(),
                 const _RouteConnector(),
                 AddressSearchField(
+                  key: ValueKey('destino_$resetCount'),
                   hint: 'Punto de destino',
                   icon: Icons.location_on,
-                  iconColor: const Color(0xFFD32F2F),
-                  onWaypointSelected: vm.setDestino,
+                  iconColor: AppTheme.error,
+                  onWaypointSelected: inputVm.setDestino,
                 ),
 
                 const SizedBox(height: AppTheme.spacingLg),
 
                 // Vehículo
-                _SectionLabel(label: 'Vehículo'),
+                const _SectionLabel(label: 'Vehículo'),
                 const SizedBox(height: AppTheme.spacingSm),
-                VehicleSelector(onSelected: vm.setVehiculo),
+                VehicleSelector(
+                  key: ValueKey('vehiculo_$resetCount'),
+                  onSelected: inputVm.setVehiculo,
+                ),
+
+                const SizedBox(height: AppTheme.spacingMd),
+
+                // Peso
+                const _SectionLabel(label: 'Carga'),
+                const SizedBox(height: AppTheme.spacingSm),
+                _PesoInputField(key: ValueKey('peso_$resetCount')),
 
                 const SizedBox(height: AppTheme.spacingLg),
-                _CalculateButton(isMobile: false),
+                const _CalculateRow(isMobile: false),
               ],
             ),
           ),
 
           const Divider(height: 1),
 
-          // Resultado
+          // Resultado con fade entre estados
           Expanded(
-            child: state.when(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: KeyedSubtree(
+                key: ValueKey(state.runtimeType),
+                child: state.when(
               initial: () => const _EmptyState(),
-              loadingRoutes: () =>
-                  const _LoadingState(mensaje: 'Buscando rutas...'),
+              loadingRoutes: () => const _EmptyState(),
               loadingTariff: () =>
                   const _LoadingState(mensaje: 'Calculando tarifa...'),
-              routesLoaded: (routes) => const _LoadingState(
-                  mensaje: 'Selecciona vehículo y calcula'),
-              success: (quotation) => ListView.separated(
-                padding: const EdgeInsets.all(AppTheme.spacingMd),
-                itemCount: quotation.resultadosPorRuta.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(height: AppTheme.spacingSm),
-                itemBuilder: (_, i) => RouteResultCard(
-                  result: quotation.resultadosPorRuta[i],
-                  esMejorRuta: quotation.rutaMasEconomica.routeId ==
-                      quotation.resultadosPorRuta[i].routeId,
-                ),
+              routesLoaded: (_) => const _RouteReadyState(),
+              success: (cotizacion) => _CotizacionResult(cotizacion: cotizacion),
+              sinTarifa: (origen, destino) => _SinTarifaState(
+                distritoOrigen: origen,
+                distritoDestino: destino,
               ),
               error: (failure) => _ErrorState(mensaje: failure.userMessage),
+                ),
+              ),
             ),
           ),
         ],
@@ -246,46 +262,71 @@ class _LeftPanel extends ConsumerWidget {
 
 // ─── Widgets compartidos ──────────────────────────────────────────────────────
 
-class _CalculateButton extends ConsumerWidget {
+/// Fila con botón Calcular + botón Reset.
+class _CalculateRow extends ConsumerWidget {
   final bool isMobile;
-  const _CalculateButton({required this.isMobile});
+  const _CalculateRow({required this.isMobile});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(tariffViewModelProvider);
+    final input = ref.watch(tariffInputNotifierProvider);
     final vm = ref.read(tariffViewModelProvider.notifier);
-    final input = vm.input;
 
-    final bool puedeCalcular = input.puedeCalcularTarifa &&
-        !state.maybeWhen(
-          loadingRoutes: () => true,
-          loadingTariff: () => true,
-          orElse: () => false,
-        );
+    final bool isLoading = state.maybeWhen(
+      loadingRoutes: () => true,
+      loadingTariff: () => true,
+      orElse: () => false,
+    );
+    final bool puedeCalcular = input.puedeCalcularTarifa && !isLoading;
+    final bool hayContenido = input.destino != null || state.maybeWhen(
+      success: (_) => true,
+      routesLoaded: (_) => true,
+      orElse: () => false,
+    );
 
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: ElevatedButton.icon(
-        onPressed: puedeCalcular
-            ? () async {
-                // 1. Search routes
-                await vm.buscarRutas();
-                // 2. Show toll review sheet if any tolls need confirmation
-                final tollState = ref.read(tollMatchingViewModelProvider);
-                final needsReview = tollState.whenOrNull(
-                  done: (result) => result.requiereRevision,
-                );
-                if (needsReview == true && context.mounted) {
-                  await _mostrarRevisionPeajes(context, ref);
-                }
-                // 3. Calculate tariff
-                await vm.calcularTarifa();
-              }
-            : null,
-        icon: const Icon(Icons.calculate_outlined, size: 18),
-        label: const Text('Calcular tarifa'),
-      ),
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: puedeCalcular
+                  ? () async {
+                      if (vm.rutasCargadas.isEmpty) await vm.buscarRutas();
+                      if (!context.mounted) return;
+                      final tollState = ref.read(tollMatchingViewModelProvider);
+                      final needsReview = tollState.whenOrNull(
+                        done: (result) => result.requiereRevision,
+                      );
+                      if (needsReview == true && context.mounted) {
+                        await _mostrarRevisionPeajes(context, ref);
+                      }
+                      if (context.mounted) await vm.calcularTarifa();
+                    }
+                  : null,
+              icon: const Icon(Icons.calculate_outlined, size: 18),
+              label: const Text('Calcular tarifa'),
+            ),
+          ),
+        ),
+        if (hayContenido) ...[
+          const SizedBox(width: AppTheme.spacingSm),
+          SizedBox(
+            height: 48,
+            width: 48,
+            child: IconButton.outlined(
+              icon: const Icon(Icons.refresh_outlined, size: 20),
+              tooltip: 'Nueva búsqueda',
+              onPressed: () => vm.resetear(),
+              style: IconButton.styleFrom(
+                foregroundColor: AppTheme.textoSecundario,
+                side: const BorderSide(color: AppTheme.bordeInactivo),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -296,6 +337,489 @@ class _CalculateButton extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const TollReviewSheet(),
+    );
+  }
+}
+
+class _CotizacionResult extends ConsumerWidget {
+  final CotizacionTarifario cotizacion;
+  const _CotizacionResult({required this.cotizacion});
+
+  String _fmt(double v) =>
+      v.toStringAsFixed(v % 1 == 0 ? 0 : 2);
+
+  String _duracion() {
+    final m = cotizacion.duracionEstimada.inMinutes;
+    return m >= 60 ? '${m ~/ 60}h ${m % 60}min' : '${m}min';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final vm = ref.read(tariffViewModelProvider.notifier);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Vehículo
+          Row(
+            children: [
+              const Icon(Icons.local_shipping,
+                  size: 16, color: AppTheme.azulPrimario),
+              const SizedBox(width: AppTheme.spacingXs),
+              Expanded(
+                child: Text(
+                  '${cotizacion.vehiculoNombre}  [${cotizacion.categoria.shortName}]',
+                  style: const TextStyle(
+                    color: AppTheme.textoPrimario,
+                    fontFamily: 'Courier New',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: AppTheme.spacingXs),
+
+          // Distancia + duración
+          if (cotizacion.distanciaKm > 0)
+            Row(
+              children: [
+                const Icon(Icons.straighten_outlined,
+                    size: 14, color: AppTheme.textoMuted),
+                const SizedBox(width: 4),
+                Text(
+                  '${cotizacion.distanciaKm.toStringAsFixed(1)} km  ·  ${_duracion()}',
+                  style: const TextStyle(
+                    color: AppTheme.textoMuted,
+                    fontFamily: 'Courier New',
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+
+          const SizedBox(height: AppTheme.spacingLg),
+
+          // Desglose
+          GlassCard(
+            padding: const EdgeInsets.all(AppTheme.spacingMd),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DesgloseLine(
+                  label:
+                      'S/ ${_fmt(cotizacion.tarifaPorKm)} × ${cotizacion.distanciaKm.toStringAsFixed(1)} km × 2',
+                  valor: cotizacion.costoKilometraje,
+                  sublabel: 'entrega y recojo (ida + vuelta)',
+                ),
+                const Divider(height: AppTheme.spacingMd, color: AppTheme.bordeInactivo),
+                _DesgloseLine(
+                  label: '+ ${(cotizacion.costoTiempo / cotizacion.costoKilometraje * 100).toStringAsFixed(0)}% tiempo',
+                  valor: cotizacion.costoTiempo,
+                  sublabel: '~60 min salida→destino',
+                ),
+                if (cotizacion.pesoKg > 0) ...[
+                  const Divider(height: AppTheme.spacingMd, color: AppTheme.bordeInactivo),
+                  _DesgloseLine(
+                    label: '+ S/ 0.10 × ${cotizacion.pesoKg.toStringAsFixed(0)} kg',
+                    valor: cotizacion.costoPeso,
+                    sublabel: 'costo por peso de carga',
+                  ),
+                ],
+                const Divider(height: 1, color: AppTheme.bordeInactivo),
+                const SizedBox(height: AppTheme.spacingMd),
+                // Total
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'TOTAL',
+                        style: TextStyle(
+                          color: AppTheme.textoMuted,
+                          fontFamily: 'Courier New',
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'S/ ${_fmt(cotizacion.precioTotal)}',
+                      style: const TextStyle(
+                        color: AppTheme.verdePrimario,
+                        fontFamily: 'Courier New',
+                        fontSize: 36,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.spacingXs),
+                Row(
+                  children: const [
+                    Icon(Icons.check_circle_outline,
+                        size: 13, color: AppTheme.textoSecundario),
+                    SizedBox(width: 4),
+                    Text(
+                      'Incluye entrega y recojo',
+                      style: TextStyle(
+                        color: AppTheme.textoSecundario,
+                        fontFamily: 'Courier New',
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: AppTheme.spacingMd),
+
+          // Acciones con fade in al aparecer
+          _FadeInActions(
+            onOlvidar: () => vm.olvidar(),
+            onGuardar: () async {
+              await vm.guardar();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Guardado en historial'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Botones GUARDAR / OLVIDAR con fade-in al montarse y fade-out al desmontarse
+/// via AnimatedSwitcher del padre.
+class _FadeInActions extends StatefulWidget {
+  final VoidCallback onOlvidar;
+  final Future<void> Function() onGuardar;
+
+  const _FadeInActions({required this.onOlvidar, required this.onGuardar});
+
+  @override
+  State<_FadeInActions> createState() => _FadeInActionsState();
+}
+
+class _FadeInActionsState extends State<_FadeInActions>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+  bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: widget.onOlvidar,
+              icon: const Icon(Icons.delete_outline, size: 16),
+              label: const Text('OLVIDAR'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.textoSecundario,
+                side: const BorderSide(color: AppTheme.bordeInactivo),
+                textStyle: const TextStyle(
+                  fontFamily: 'Courier New',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppTheme.spacingSm),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: _guardando
+                  ? null
+                  : () async {
+                      setState(() => _guardando = true);
+                      await widget.onGuardar();
+                      if (mounted) setState(() => _guardando = false);
+                    },
+              icon: _guardando
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.black),
+                    )
+                  : const Icon(Icons.save_outlined, size: 16),
+              label: Text(_guardando ? 'Guardando...' : 'GUARDAR'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.verdePrimario,
+                foregroundColor: Colors.black,
+                textStyle: const TextStyle(
+                  fontFamily: 'Courier New',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesgloseLine extends StatelessWidget {
+  final String label;
+  final double valor;
+  final String sublabel;
+
+  const _DesgloseLine({
+    required this.label,
+    required this.valor,
+    required this.sublabel,
+  });
+
+  String _fmt(double v) => v.toStringAsFixed(v % 1 == 0 ? 0 : 2);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppTheme.textoPrimario,
+                  fontFamily: 'Courier New',
+                  fontSize: 13,
+                ),
+              ),
+              Text(
+                sublabel,
+                style: const TextStyle(
+                  color: AppTheme.textoMuted,
+                  fontFamily: 'Courier New',
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          'S/ ${_fmt(valor)}',
+          style: const TextStyle(
+            color: AppTheme.textoSecundario,
+            fontFamily: 'Courier New',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SinTarifaState extends StatelessWidget {
+  final String distritoOrigen;
+  final String distritoDestino;
+  const _SinTarifaState({
+    required this.distritoOrigen,
+    required this.distritoDestino,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.spacingLg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.search_off_outlined, size: 32, color: AppTheme.textoMuted),
+          const SizedBox(height: AppTheme.spacingSm),
+          const Text(
+            '[ SIN TARIFA ]',
+            style: TextStyle(
+              color: AppTheme.textoSecundario,
+              fontFamily: 'Courier New',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacingMd),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppTheme.spacingMd),
+            decoration: BoxDecoration(
+              color: AppTheme.superficieCard,
+              borderRadius: BorderRadius.circular(AppTheme.borderRadiusSm),
+              border: Border.all(color: AppTheme.bordeInactivo),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Distritos detectados:',
+                  style: TextStyle(color: AppTheme.textoMuted, fontFamily: 'Courier New', fontSize: 10, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '  origen  → "$distritoOrigen"',
+                  style: const TextStyle(color: AppTheme.verdePrimario, fontFamily: 'Courier New', fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '  destino → "$distritoDestino"',
+                  style: const TextStyle(color: AppTheme.error, fontFamily: 'Courier New', fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacingSm),
+          const Text(
+            'Carga las zonas desde\nCatálogo de Tarifas.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTheme.textoMuted,
+              fontFamily: 'Courier New',
+              fontSize: 11,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PesoInputField extends ConsumerStatefulWidget {
+  const _PesoInputField({super.key});
+
+  @override
+  ConsumerState<_PesoInputField> createState() => _PesoInputFieldState();
+}
+
+class _PesoInputFieldState extends ConsumerState<_PesoInputField> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Limpia el campo si el notifier resetea el peso a 0
+    ref.listenManual(
+      tariffInputNotifierProvider.select((i) => i.pesoKg),
+      (prev, next) {
+        if (next == 0.0 && _ctrl.text.isNotEmpty) _ctrl.clear();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _ctrl,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: (v) {
+        final kg = double.tryParse(v) ?? 0.0;
+        ref.read(tariffInputNotifierProvider.notifier).setPeso(kg);
+      },
+      decoration: const InputDecoration(
+        hintText: '0',
+        labelText: 'Peso de la carga',
+        prefixIcon: Icon(Icons.scale_outlined, size: 18),
+        suffixText: 'kg',
+      ),
+    );
+  }
+}
+
+class _OriginFijaWidget extends StatelessWidget {
+  const _OriginFijaWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppTheme.bordeInactivo),
+        borderRadius: BorderRadius.circular(AppTheme.borderRadiusSm),
+        color: AppTheme.superficieCard,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.radio_button_checked,
+              color: AppTheme.azulPrimario, size: 18),
+          const SizedBox(width: AppTheme.spacingSm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  'BASE / ORIGEN',
+                  style: TextStyle(
+                    color: AppTheme.textoMuted,
+                    fontFamily: 'Courier New',
+                    fontSize: 9,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Manuel de la Torre 191, Santa Anita',
+                  style: TextStyle(
+                    color: AppTheme.textoPrimario,
+                    fontFamily: 'Courier New',
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.lock_outline,
+              size: 14, color: AppTheme.textoMuted),
+        ],
+      ),
     );
   }
 }
@@ -330,11 +854,48 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label.toUpperCase(),
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppTheme.textoSecundario,
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w600,
+      style: const TextStyle(
+        color: AppTheme.grisDark,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+class _RouteReadyState extends StatelessWidget {
+  const _RouteReadyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline,
+              size: 40, color: AppTheme.verdePrimario),
+          const SizedBox(height: AppTheme.spacingMd),
+          const Text(
+            'Ruta cargada',
+            style: TextStyle(
+              color: AppTheme.verdePrimario,
+              fontFamily: 'Courier New',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
+          const SizedBox(height: AppTheme.spacingXs),
+          const Text(
+            'Presiona calcular tarifa',
+            style: TextStyle(
+              color: AppTheme.textoSecundario,
+              fontFamily: 'Courier New',
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -348,11 +909,10 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.route_outlined,
-              size: 48, color: AppTheme.grisMedium),
+          Icon(Icons.route_outlined, size: 48, color: AppTheme.grisMedium),
           const SizedBox(height: AppTheme.spacingMd),
           Text(
-            'Ingresa origen y destino\npara calcular la tarifa',
+            'Ingresa el destino\npara calcular la tarifa',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppTheme.textoSecundario, height: 1.5),
           ),
@@ -374,8 +934,7 @@ class _LoadingState extends StatelessWidget {
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: AppTheme.spacingMd),
-          Text(mensaje,
-              style: TextStyle(color: AppTheme.textoSecundario)),
+          Text(mensaje, style: TextStyle(color: AppTheme.textoSecundario)),
         ],
       ),
     );
@@ -421,42 +980,18 @@ class _LoadingOverlay extends StatelessWidget {
 }
 
 class _ResultBottomSheet extends StatelessWidget {
-  final Quotation quotation;
+  final CotizacionTarifario cotizacion;
   final ScrollController scrollController;
-  const _ResultBottomSheet(
-      {required this.quotation, required this.scrollController});
+  const _ResultBottomSheet({
+    required this.cotizacion,
+    required this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: EdgeInsets.zero,
-      child: ListView.separated(
-        controller: scrollController,
-        padding: const EdgeInsets.all(AppTheme.spacingMd),
-        itemCount: quotation.resultadosPorRuta.length + 1,
-        separatorBuilder: (_, __) =>
-            const SizedBox(height: AppTheme.spacingSm),
-        itemBuilder: (_, i) {
-          if (i == 0) {
-            return Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.grisMedium,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            );
-          }
-          final result = quotation.resultadosPorRuta[i - 1];
-          return RouteResultCard(
-            result: result,
-            esMejorRuta:
-                quotation.rutaMasEconomica.routeId == result.routeId,
-          );
-        },
-      ),
+      child: _CotizacionResult(cotizacion: cotizacion),
     );
   }
 }

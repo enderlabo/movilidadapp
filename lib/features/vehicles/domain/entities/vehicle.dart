@@ -18,6 +18,7 @@ class Vehicle with _$Vehicle {
     required double rendimientoKmPorGalonCargado,
     required double rendimientoKmPorGalonVacio,
     @Default(true) bool activo,
+    @Default(CategoriaVehiculo.pequeno) CategoriaVehiculo categoria,
   }) = _Vehicle;
 
   const Vehicle._();
@@ -44,5 +45,20 @@ enum TipoVehiculo {
         TipoVehiculo.furgon => 'Furgón',
         TipoVehiculo.tracto => 'Tracto',
         TipoVehiculo.otro => 'Otro',
+      };
+}
+
+enum CategoriaVehiculo {
+  pequeno,
+  grande;
+
+  String get displayName => switch (this) {
+        CategoriaVehiculo.pequeno => 'Camión Pequeño',
+        CategoriaVehiculo.grande => 'Camión Grande',
+      };
+
+  String get shortName => switch (this) {
+        CategoriaVehiculo.pequeno => 'PEQUEÑO',
+        CategoriaVehiculo.grande => 'GRANDE',
       };
 }

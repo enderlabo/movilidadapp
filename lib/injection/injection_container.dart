@@ -16,6 +16,12 @@ import '../features/tolls/domain/repositories/i_toll_repository.dart';
 import '../features/tolls/domain/services/toll_matcher_service.dart';
 import '../features/tolls/domain/usecases/process_route_tolls_usecase.dart';
 import '../features/tolls/data/repositories/toll_repository_impl.dart';
+import '../features/tarifas/domain/repositories/i_tarifa_zona_repository.dart';
+import '../features/tarifas/data/repositories/tarifa_zona_repository_impl.dart';
+import '../features/tarifas/domain/repositories/i_zona_tarifaria_repository.dart';
+import '../features/tarifas/data/repositories/zona_tarifaria_repository_impl.dart';
+import '../features/historial/domain/repositories/i_historial_repository.dart';
+import '../features/historial/data/repositories/historial_repository_impl.dart';
 
 final sl = GetIt.instance;
 
@@ -60,6 +66,18 @@ abstract final class InjectionContainer {
 
     sl.registerLazySingleton<IRouteRepository>(
       () => RouteRepositoryImpl(dio: sl()),
+    );
+
+    sl.registerLazySingleton<ITarifaZonaRepository>(
+      () => TarifaZonaRepositoryImpl(firestore: sl()),
+    );
+
+    sl.registerLazySingleton<IZonaTarifariaRepository>(
+      () => ZonaTarifariaRepositoryImpl(firestore: sl()),
+    );
+
+    sl.registerLazySingleton<IHistorialRepository>(
+      () => HistorialRepositoryImpl(firestore: sl()),
     );
 
     // ── Use Cases ─────────────────────────────────────────────────────────────

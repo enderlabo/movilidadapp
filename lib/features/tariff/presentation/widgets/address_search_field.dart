@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../../../core/error/failures.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../injection/injection_container.dart';
 import '../../../routes/domain/entities/route.dart';
 import '../../../routes/domain/repositories/i_route_repository.dart';
 
@@ -10,7 +12,7 @@ part 'address_search_field.g.dart';
 /// Provider del repositorio de rutas — se registra en InjectionContainer
 @riverpod
 IRouteRepository routeRepository(Ref ref) {
-  throw UnimplementedError('Registra en InjectionContainer');
+  return sl<IRouteRepository>();
 }
 
 /// Campo de búsqueda de dirección con autocompletado de Google Places.
@@ -58,7 +60,16 @@ class _AddressSearchFieldState extends ConsumerState<AddressSearchField> {
     if (!mounted) return;
     setState(() => _cargando = false);
     result.fold(
-      (_) => _removeOverlay(),
+      (failure) {
+        _removeOverlay();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.userMessage),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      },
       (sugerencias) {
         _sugerencias = sugerencias;
         _showOverlay();
@@ -75,7 +86,18 @@ class _AddressSearchFieldState extends ConsumerState<AddressSearchField> {
     final result = await repo.geocodeAddress(direccion);
     if (!mounted) return;
     setState(() => _cargando = false);
-    result.fold((_) {}, (waypoint) => widget.onWaypointSelected(waypoint));
+    result.fold(
+      (failure) {
+        _controller.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudieron obtener coordenadas: ${failure.userMessage}'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      },
+      (waypoint) => widget.onWaypointSelected(waypoint),
+    );
   }
 
   void _showOverlay() {
@@ -148,33 +170,54 @@ class _SugerenciasDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(AppTheme.borderRadiusSm),
+      elevation: 0,
+      color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.glassBackground,
+          color: AppTheme.superficieCard,
           borderRadius: BorderRadius.circular(AppTheme.borderRadiusSm),
-          border: Border.all(color: AppTheme.glassBorder),
+          border: Border.all(color: AppTheme.bordeInactivo),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.verdeGlow,
+              blurRadius: 12,
+              spreadRadius: 0,
+            ),
+          ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: sugerencias
-              .map((s) => InkWell(
-                    onTap: () => onSelected(s),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusSm),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: sugerencias.asMap().entries.map((e) {
+              final isLast = e.key == sugerencias.length - 1;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () => onSelected(e.value),
+                    hoverColor: AppTheme.verdeTenue,
+                    splashColor: AppTheme.verdePrimario.withValues(alpha: 0.1),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacingMd,
-                        vertical: AppTheme.spacingMd,
-                      ),
+                          horizontal: AppTheme.spacingMd, vertical: 12),
                       child: Row(
                         children: [
-                          Icon(Icons.location_on_outlined,
-                              size: 16, color: AppTheme.grisMedium),
+                          const Text('>', style: TextStyle(
+                            fontFamily: 'Courier New',
+                            color: AppTheme.verdePrimario,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          )),
                           const SizedBox(width: AppTheme.spacingSm),
                           Expanded(
                             child: Text(
-                              s,
-                              style: const TextStyle(fontSize: 14),
+                              e.value,
+                              style: const TextStyle(
+                                fontFamily: 'Courier New',
+                                fontSize: 13,
+                                color: AppTheme.textoPrimario,
+                              ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -182,8 +225,16 @@ class _SugerenciasDropdown extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ))
-              .toList(),
+                  ),
+                  if (!isLast)
+                    const Divider(
+                        height: 1,
+                        color: AppTheme.bordeInactivo,
+                        indent: AppTheme.spacingMd),
+                ],
+              );
+            }).toList(),
+          ),
         ),
       ),
     );

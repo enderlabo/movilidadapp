@@ -33,5 +33,6 @@ class Waypoint with _$Waypoint {
     required String direccion,     // texto legible
     required double lat,
     required double lng,
+    String? distrito,              // distrito de Lima extraído del geocoding
   }) = _Waypoint;
 }

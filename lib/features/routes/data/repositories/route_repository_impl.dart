@@ -95,12 +95,15 @@ class RouteRepositoryImpl implements IRouteRepository {
             message: 'Geocoding failed: ${data["status"]}'));
       }
 
-      final location = data['results'][0]['geometry']['location'];
-      final formatted = data['results'][0]['formatted_address'] as String;
+      final result = data['results'][0] as Map<String, dynamic>;
+      final location = result['geometry']['location'];
+      final formatted = result['formatted_address'] as String;
+      final distrito = _extractDistrito(result);
       return Right(Waypoint(
         direccion: formatted,
         lat: (location['lat'] as num).toDouble(),
         lng: (location['lng'] as num).toDouble(),
+        distrito: distrito,
       ));
     } on DioException catch (e) {
       if (e.type == DioExceptionType.connectionError) {
@@ -132,7 +135,16 @@ class RouteRepositoryImpl implements IRouteRepository {
       final data = response.data!;
       if (data['status'] == 'ZERO_RESULTS') return const Right([]);
       if (data['status'] != 'OK') {
-        return Left(Failure.mapsApi(message: 'Autocomplete: ${data["status"]}'));
+        final status = data['status'] as String;
+        final hint = switch (status) {
+          'REQUEST_DENIED' =>
+            'REQUEST_DENIED — verifica que "Places API" esté habilitada en Google Cloud Console y que la API key no tenga restricciones de plataforma',
+          'OVER_DAILY_LIMIT' => 'OVER_DAILY_LIMIT — cuota diaria agotada o billing no configurado',
+          'OVER_QUERY_LIMIT' => 'OVER_QUERY_LIMIT — demasiadas solicitudes por segundo',
+          'INVALID_REQUEST'  => 'INVALID_REQUEST — parámetro inválido',
+          _ => status,
+        };
+        return Left(Failure.mapsApi(message: hint));
       }
 
       final predictions = (data['predictions'] as List)
@@ -150,6 +162,25 @@ class RouteRepositoryImpl implements IRouteRepository {
   }
 
   // ── Parsing ───────────────────────────────────────────────────────────────
+
+  String? _extractDistrito(Map<String, dynamic> result) {
+    final components = result['address_components'] as List? ?? [];
+    for (final comp in components) {
+      final types = (comp['types'] as List? ?? []).cast<String>();
+      if (types.contains('administrative_area_level_3') ||
+          types.contains('sublocality_level_1')) {
+        return comp['long_name'] as String?;
+      }
+    }
+    // fallback to sublocality
+    for (final comp in components) {
+      final types = (comp['types'] as List? ?? []).cast<String>();
+      if (types.contains('sublocality')) {
+        return comp['long_name'] as String?;
+      }
+    }
+    return null;
+  }
 
   RouteResult _parseRoute(Map<String, dynamic> route, int index) {
     final distanceMeters = (route['distanceMeters'] as num?)?.toInt() ?? 0;

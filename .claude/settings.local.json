@@ -6,7 +6,13 @@
       "PowerShell($env:PATH += \";C:\\\\Users\\\\devel\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\bin\"; cd \"C:\\\\Users\\\\devel\\\\Documents\\\\Developer\\\\movilidadapp\"; flutterfire configure --project=movilidadapp-cb57b --platforms=windows,web,android --yes 2>&1 | Select-Object -First 50)",
       "PowerShell(npm *)",
       "PowerShell(firebase login *)",
-      "PowerShell(Copy-Item *)"
+      "PowerShell(Copy-Item *)",
+      "Bash(flutter analyze *)",
+      "Bash(dart pub *)",
+      "Bash(dart run *)",
+      "mcp__plugin_firebase_firebase__firebase_get_environment",
+      "Bash(node *)",
+      "Bash(firebase projects:list)"
     ]
   }
 }
