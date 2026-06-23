@@ -2,6 +2,21 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'vehicle.freezed.dart';
 
+/// Zonas operativas de Lima según la matriz de selección de vehículo.
+enum ZonaLima {
+  residencialFinanciero,
+  comercialIndustrial,
+  periferica,
+  altaVelocidad;
+
+  String get displayName => switch (this) {
+        ZonaLima.residencialFinanciero => 'Residencial / Financiero',
+        ZonaLima.comercialIndustrial => 'Comercial / Industrial',
+        ZonaLima.periferica => 'Zona Periférica',
+        ZonaLima.altaVelocidad => 'Ruta de Alta Velocidad',
+      };
+}
+
 /// Entidad de dominio: Vehículo de la empresa de andamios.
 ///
 /// [rendimientoKmPorGalonCargado] — km/galón cuando sale del almacén con carga.

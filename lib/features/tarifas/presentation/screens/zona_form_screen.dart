@@ -106,8 +106,8 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
             const SizedBox(height: AppTheme.spacingSm),
             TextFormField(
               controller: _nombreController,
-              style: const TextStyle(
-                color: AppTheme.textoPrimario,
+              style: TextStyle(
+                color: context.c.textoPrimario,
                 fontFamily: 'Courier New',
               ),
               decoration: const InputDecoration(
@@ -128,8 +128,8 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
               controller: _distritosController,
               minLines: 3,
               maxLines: 6,
-              style: const TextStyle(
-                color: AppTheme.textoPrimario,
+              style: TextStyle(
+                color: context.c.textoPrimario,
                 fontFamily: 'Courier New',
                 fontSize: 13,
               ),
@@ -150,10 +150,10 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'REQUIERE COTIZAR',
                     style: TextStyle(
-                      color: AppTheme.textoSecundario,
+                      color: context.c.textoSecundario,
                       fontFamily: 'Courier New',
                       fontSize: 12,
                       letterSpacing: 1.2,
@@ -165,8 +165,8 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
                     onChanged: (v) => setState(() => _requiereCotizar = v),
                     activeThumbColor: AppTheme.verdePrimario,
                     activeTrackColor: AppTheme.verdeTenue,
-                    inactiveThumbColor: AppTheme.textoMuted,
-                    inactiveTrackColor: AppTheme.superficieMid,
+                    inactiveThumbColor: context.c.textoMuted,
+                    inactiveTrackColor: context.c.superficieMid,
                   ),
                 ],
               ),
@@ -183,14 +183,14 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
                     child: TextFormField(
                       controller: _precioMinController,
                       keyboardType: TextInputType.number,
-                      style: const TextStyle(
-                        color: AppTheme.textoPrimario,
+                      style: TextStyle(
+                        color: context.c.textoPrimario,
                         fontFamily: 'Courier New',
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Mínimo S/',
                         labelStyle: TextStyle(
-                          color: AppTheme.textoMuted,
+                          color: context.c.textoMuted,
                           fontFamily: 'Courier New',
                           fontSize: 12,
                         ),
@@ -211,14 +211,14 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
                     child: TextFormField(
                       controller: _precioMaxController,
                       keyboardType: TextInputType.number,
-                      style: const TextStyle(
-                        color: AppTheme.textoPrimario,
+                      style: TextStyle(
+                        color: context.c.textoPrimario,
                         fontFamily: 'Courier New',
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Máximo S/',
                         labelStyle: TextStyle(
-                          color: AppTheme.textoMuted,
+                          color: context.c.textoMuted,
                           fontFamily: 'Courier New',
                           fontSize: 12,
                         ),
@@ -299,8 +299,8 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
-        color: AppTheme.textoSecundario,
+      style: TextStyle(
+        color: context.c.textoSecundario,
         fontFamily: 'Courier New',
         fontSize: 11,
         letterSpacing: 1.2,

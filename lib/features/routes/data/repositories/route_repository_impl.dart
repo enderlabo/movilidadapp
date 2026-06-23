@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/error/failures.dart';
@@ -99,6 +100,8 @@ class RouteRepositoryImpl implements IRouteRepository {
       final location = result['geometry']['location'];
       final formatted = result['formatted_address'] as String;
       final distrito = _extractDistrito(result);
+      // DEBUG: eliminar cuando esté validado
+      debugPrint('[Geocode] "$formatted" → distrito="$distrito"');
       return Right(Waypoint(
         direccion: formatted,
         lat: (location['lat'] as num).toDouble(),
@@ -165,18 +168,28 @@ class RouteRepositoryImpl implements IRouteRepository {
 
   String? _extractDistrito(Map<String, dynamic> result) {
     final components = result['address_components'] as List? ?? [];
+    // DEBUG: log all components to understand Google's hierarchy for Lima
     for (final comp in components) {
       final types = (comp['types'] as List? ?? []).cast<String>();
-      if (types.contains('administrative_area_level_3') ||
-          types.contains('sublocality_level_1')) {
-        return comp['long_name'] as String?;
-      }
+      debugPrint('[Geocode-comp] ${comp['long_name']} → $types');
     }
-    // fallback to sublocality
-    for (final comp in components) {
-      final types = (comp['types'] as List? ?? []).cast<String>();
-      if (types.contains('sublocality')) {
-        return comp['long_name'] as String?;
+    // Orden de prioridad para distritos de Lima, Perú:
+    // Google retorna el distrito como locality, administrative_area_level_3
+    // o sublocality_level_1 dependiendo del tipo de lugar.
+    const prioridad = [
+      'administrative_area_level_3',
+      'sublocality_level_1',
+      'locality',
+      'sublocality',
+    ];
+    for (final tipo in prioridad) {
+      for (final comp in components) {
+        final types = (comp['types'] as List? ?? []).cast<String>();
+        if (types.contains(tipo)) {
+          // Excluye "Lima" como ciudad (administrative_area_level_2)
+          final nombre = comp['long_name'] as String? ?? '';
+          if (nombre.toLowerCase() != 'lima') return nombre;
+        }
       }
     }
     return null;
@@ -188,8 +201,13 @@ class RouteRepositoryImpl implements IRouteRepository {
     final seconds = int.tryParse(durationStr.replaceAll('s', '')) ?? 0;
 
     final tolls = _extractTollsSoles(route);
-    final polyline = _decodePolyline(
-        (route['polyline'] as Map?)?['encodedPolyline'] as String? ?? '');
+    final encoded =
+        (route['polyline'] as Map?)?['encodedPolyline'] as String? ?? '';
+    final polyline = _decodePolyline(encoded);
+    debugPrint(
+        '[Routes] ruta[$index] distancia=${distanceMeters}m '
+        'encoded.length=${encoded.length} puntos=${polyline.length} '
+        'descripcion="${route['description']}"');
 
     return RouteResult(
       id: const Uuid().v4(),

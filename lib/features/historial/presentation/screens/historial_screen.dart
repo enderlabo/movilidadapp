@@ -29,14 +29,14 @@ class HistorialScreen extends ConsumerWidget {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.history_outlined,
+                children: [
+                  const Icon(Icons.history_outlined,
                       size: 48, color: AppTheme.grisMedium),
-                  SizedBox(height: AppTheme.spacingMd),
+                  const SizedBox(height: AppTheme.spacingMd),
                   Text(
                     'Sin cotizaciones guardadas',
                     style: TextStyle(
-                      color: AppTheme.textoSecundario,
+                      color: context.c.textoSecundario,
                       fontFamily: 'Courier New',
                     ),
                   ),
@@ -77,13 +77,13 @@ class _HistorialCard extends ConsumerWidget {
           // Fecha + categoría
           Row(
             children: [
-              const Icon(Icons.access_time_outlined,
-                  size: 13, color: AppTheme.textoMuted),
+              Icon(Icons.access_time_outlined,
+                  size: 13, color: context.c.textoMuted),
               const SizedBox(width: 4),
               Text(
                 fecha,
-                style: const TextStyle(
-                  color: AppTheme.textoMuted,
+                style: TextStyle(
+                  color: context.c.textoMuted,
                   fontFamily: 'Courier New',
                   fontSize: 11,
                 ),
@@ -115,8 +115,8 @@ class _HistorialCard extends ConsumerWidget {
           // Vehículo
           Text(
             cotizacion.vehiculoNombre,
-            style: const TextStyle(
-              color: AppTheme.textoPrimario,
+            style: TextStyle(
+              color: context.c.textoPrimario,
               fontFamily: 'Courier New',
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -135,8 +135,8 @@ class _HistorialCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   cotizacion.origenDireccion,
-                  style: const TextStyle(
-                    color: AppTheme.textoSecundario,
+                  style: TextStyle(
+                    color: context.c.textoSecundario,
                     fontFamily: 'Courier New',
                     fontSize: 11,
                   ),
@@ -160,8 +160,8 @@ class _HistorialCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   cotizacion.destinoDireccion,
-                  style: const TextStyle(
-                    color: AppTheme.textoSecundario,
+                  style: TextStyle(
+                    color: context.c.textoSecundario,
                     fontFamily: 'Courier New',
                     fontSize: 11,
                   ),
@@ -177,13 +177,13 @@ class _HistorialCard extends ConsumerWidget {
           // Distancia + duración + precio
           Row(
             children: [
-              const Icon(Icons.straighten_outlined,
-                  size: 13, color: AppTheme.textoMuted),
+              Icon(Icons.straighten_outlined,
+                  size: 13, color: context.c.textoMuted),
               const SizedBox(width: 4),
               Text(
                 '${cotizacion.distanciaKm.toStringAsFixed(1)} km × 2  ·  $duracion',
-                style: const TextStyle(
-                  color: AppTheme.textoMuted,
+                style: TextStyle(
+                  color: context.c.textoMuted,
                   fontFamily: 'Courier New',
                   fontSize: 11,
                 ),

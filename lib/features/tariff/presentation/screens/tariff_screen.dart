@@ -5,9 +5,12 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/platform_utils.dart';
 import '../../../../core/error/failures.dart';
 import '../../../tarifas/domain/entities/cotizacion_tarifario.dart';
+import '../../../routes/domain/entities/route.dart';
 import '../viewmodels/tariff_viewmodel.dart';
+import '../viewmodels/tarifa_config_viewmodel.dart';
 import '../widgets/address_search_field.dart';
 import '../widgets/vehicle_selector.dart';
+import '../widgets/vehicle_recommendation_card.dart';
 import '../widgets/map_widget.dart';
 import '../widgets/toll_review_sheet.dart';
 import '../../../tolls/presentation/viewmodels/toll_viewmodel.dart';
@@ -24,6 +27,9 @@ class TariffScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Pre-warm: starts loading from SharedPreferences the moment this screen
+    // renders, so the config is ready long before the user hits "Calcular".
+    ref.watch(tarifaConfigNotifierProvider);
     return PlatformUtils.isMobile(context)
         ? const _MobileLayout()
         : const _DesktopWebLayout();
@@ -131,6 +137,8 @@ class _FloatingInputPanel extends ConsumerWidget {
                 onSelected: inputVm.setVehiculo,
               ),
               const SizedBox(height: AppTheme.spacingSm),
+              const VehicleRecommendationCard(),
+              const SizedBox(height: AppTheme.spacingSm),
               _PesoInputField(key: ValueKey('peso_$resetCount')),
               const SizedBox(height: AppTheme.spacingMd),
               const _CalculateRow(isMobile: true),
@@ -168,7 +176,7 @@ class _DesktopWebLayout extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),
-            tooltip: 'Información de tarifas',
+            tooltip: 'Información del App',
             onPressed: () => context.push(AppRoutes.peajes),
           ),
           IconButton(
@@ -254,6 +262,8 @@ class _LeftPanel extends ConsumerWidget {
                   key: ValueKey('vehiculo_$resetCount'),
                   onSelected: inputVm.setVehiculo,
                 ),
+                const SizedBox(height: AppTheme.spacingSm),
+                const VehicleRecommendationCard(),
 
                 const SizedBox(height: AppTheme.spacingMd),
 
@@ -388,14 +398,12 @@ class _CotizacionResult extends ConsumerWidget {
   String _fmt(double v) =>
       v.toStringAsFixed(v % 1 == 0 ? 0 : 2);
 
-  String _duracion() {
-    final m = cotizacion.duracionEstimada.inMinutes;
-    return m >= 60 ? '${m ~/ 60}h ${m % 60}min' : '${m}min';
-  }
+  String _duracion() => _formatDuracion(cotizacion.duracionEstimada);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vm = ref.read(tariffViewModelProvider.notifier);
+    final rutas = vm.rutasCargadas;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.spacingMd),
       child: Column(
@@ -405,15 +413,14 @@ class _CotizacionResult extends ConsumerWidget {
           Row(
             children: [
               const Icon(Icons.local_shipping,
-                  size: 16, color: AppTheme.azulPrimario),
+                  size: 20, color: AppTheme.azulPrimario),
               const SizedBox(width: AppTheme.spacingXs),
               Expanded(
                 child: Text(
-                  '${cotizacion.vehiculoNombre}  [${cotizacion.categoria.shortName}]',
+                  cotizacion.vehiculoNombre,
                   style: TextStyle(
                     color: context.c.textoPrimario,
-                    fontFamily: 'Courier New',
-                    fontSize: 13,
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -435,12 +442,17 @@ class _CotizacionResult extends ConsumerWidget {
                   '${cotizacion.distanciaKm.toStringAsFixed(1)} km  ·  ${_duracion()}',
                   style: TextStyle(
                     color: context.c.textoMuted,
-                    fontFamily: 'Courier New',
-                    fontSize: 12,
+                    fontSize: 16,
                   ),
                 ),
               ],
             ),
+
+          // Tiempos de recorrido: ruta principal + alternativas
+          if (rutas.isNotEmpty) ...[
+            const SizedBox(height: AppTheme.spacingMd),
+            _RutasTiemposCard(rutas: rutas),
+          ],
 
           const SizedBox(height: AppTheme.spacingLg),
 
@@ -456,11 +468,11 @@ class _CotizacionResult extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppTheme.spacingSm, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppTheme.naranjaPrimario.withOpacity(0.12),
+                    color: AppTheme.naranjaPrimario.withValues(alpha: 0.12),
                     borderRadius:
                         BorderRadius.circular(AppTheme.borderRadiusSm),
                     border: Border.all(
-                        color: AppTheme.naranjaPrimario.withOpacity(0.4)),
+                        color: AppTheme.naranjaPrimario.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
@@ -472,10 +484,8 @@ class _CotizacionResult extends ConsumerWidget {
                           'Precio incluye IDA Y VUELTA (× 2)',
                           style: TextStyle(
                             color: AppTheme.naranjaPrimario,
-                            fontFamily: 'Courier New',
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
                           ),
                         ),
                       ),
@@ -514,8 +524,7 @@ class _CotizacionResult extends ConsumerWidget {
                         'TOTAL',
                         style: TextStyle(
                           color: context.c.textoMuted,
-                          fontFamily: 'Courier New',
-                          fontSize: 11,
+                          fontSize: 16,
                           letterSpacing: 1.2,
                         ),
                       ),
@@ -538,13 +547,14 @@ class _CotizacionResult extends ConsumerWidget {
                     const Icon(Icons.check_circle_outline,
                         size: 13, color: AppTheme.naranjaPrimario),
                     const SizedBox(width: 4),
-                    const Text(
-                      'Km · tiempo · peso  ×2  (ida + vuelta)',
-                      style: TextStyle(
-                        color: AppTheme.naranjaPrimario,
-                        fontFamily: 'Courier New',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                    const Expanded(
+                      child: Text(
+                        'Km · tiempo · peso  ×2  (ida + vuelta)',
+                        style: TextStyle(
+                          color: AppTheme.naranjaPrimario,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -626,10 +636,9 @@ class _FadeInActionsState extends State<_FadeInActions>
                 foregroundColor: context.c.textoSecundario,
                 side: BorderSide(color: context.c.bordeInactivo),
                 textStyle: const TextStyle(
-                  fontFamily: 'Courier New',
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
@@ -657,16 +666,153 @@ class _FadeInActionsState extends State<_FadeInActions>
                 backgroundColor: AppTheme.verdePrimario,
                 foregroundColor: Colors.black,
                 textStyle: const TextStyle(
-                  fontFamily: 'Courier New',
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Formatea una duración como "1h 20min" o "45min".
+String _formatDuracion(Duration d) {
+  final m = d.inMinutes;
+  return m >= 60 ? '${m ~/ 60}h ${m % 60}min' : '${m}min';
+}
+
+/// Tarjeta que lista el tiempo de recorrido de la ruta principal y de cada
+/// ruta alternativa devuelta por Maps, junto con su distancia.
+class _RutasTiemposCard extends StatelessWidget {
+  final List<RouteResult> rutas;
+  const _RutasTiemposCard({required this.rutas});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.schedule_outlined,
+                  size: 16, color: AppTheme.azulPrimario),
+              const SizedBox(width: 6),
+              Text(
+                'TIEMPO DE RECORRIDO',
+                style: TextStyle(
+                  color: context.c.textoSecundario,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingSm),
+          for (var i = 0; i < rutas.length; i++) ...[
+            if (i > 0) const Divider(height: AppTheme.spacingMd),
+            _RutaTiempoFila(ruta: rutas[i], esPrincipal: i == 0),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RutaTiempoFila extends StatelessWidget {
+  final RouteResult ruta;
+  final bool esPrincipal;
+  const _RutaTiempoFila({required this.ruta, required this.esPrincipal});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: esPrincipal ? AppTheme.azulPrimario : AppTheme.azulClaro,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.route,
+            size: 16,
+            color: esPrincipal ? AppTheme.blanco : AppTheme.azulPrimario,
+          ),
+        ),
+        const SizedBox(width: AppTheme.spacingSm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    ruta.etiqueta,
+                    style: TextStyle(
+                      color: context.c.textoPrimario,
+                      fontSize: 14,
+                      fontWeight:
+                          esPrincipal ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                  if (esPrincipal)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppTheme.azulPrimario.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Más rápida',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.azulPrimario,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${ruta.distanciaKm.toStringAsFixed(1)} km',
+                style: TextStyle(
+                  color: context.c.textoMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppTheme.spacingSm),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule, size: 14, color: context.c.textoSecundario),
+            const SizedBox(width: 4),
+            Text(
+              _formatDuracion(ruta.duracionEstimada),
+              style: TextStyle(
+                color: context.c.textoPrimario,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -697,16 +843,14 @@ class _DesgloseLine extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: context.c.textoPrimario,
-                  fontFamily: 'Courier New',
-                  fontSize: 13,
+                  fontSize: 16,
                 ),
               ),
               Text(
                 sublabel,
                 style: TextStyle(
                   color: context.c.textoMuted,
-                  fontFamily: 'Courier New',
-                  fontSize: 10,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -716,8 +860,7 @@ class _DesgloseLine extends StatelessWidget {
           'S/ ${_fmt(valor)}',
           style: TextStyle(
             color: context.c.textoSecundario,
-            fontFamily: 'Courier New',
-            fontSize: 13,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -747,8 +890,7 @@ class _SinTarifaState extends StatelessWidget {
             '[ SIN TARIFA ]',
             style: TextStyle(
               color: context.c.textoSecundario,
-              fontFamily: 'Courier New',
-              fontSize: 14,
+              fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -766,17 +908,17 @@ class _SinTarifaState extends StatelessWidget {
               children: [
                 Text(
                   'Distritos detectados:',
-                  style: TextStyle(color: context.c.textoMuted, fontFamily: 'Courier New', fontSize: 10, letterSpacing: 0.8),
+                  style: TextStyle(color: context.c.textoMuted, fontSize: 14, letterSpacing: 0.5),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   '  origen  → "$distritoOrigen"',
-                  style: const TextStyle(color: AppTheme.verdePrimario, fontFamily: 'Courier New', fontSize: 11),
+                  style: const TextStyle(color: AppTheme.verdePrimario, fontSize: 16),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '  destino → "$distritoDestino"',
-                  style: const TextStyle(color: AppTheme.error, fontFamily: 'Courier New', fontSize: 11),
+                  style: const TextStyle(color: AppTheme.error, fontSize: 16),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -788,8 +930,7 @@ class _SinTarifaState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: context.c.textoMuted,
-              fontFamily: 'Courier New',
-              fontSize: 11,
+              fontSize: 16,
               height: 1.5,
             ),
           ),
@@ -872,8 +1013,7 @@ class _OriginFijaWidget extends StatelessWidget {
                   'BASE / ORIGEN',
                   style: TextStyle(
                     color: context.c.textoMuted,
-                    fontFamily: 'Courier New',
-                    fontSize: 9,
+                    fontSize: 12,
                     letterSpacing: 1.0,
                   ),
                 ),
@@ -882,8 +1022,7 @@ class _OriginFijaWidget extends StatelessWidget {
                   'Manuel de la Torre 191, Santa Anita',
                   style: TextStyle(
                     color: context.c.textoPrimario,
-                    fontFamily: 'Courier New',
-                    fontSize: 13,
+                    fontSize: 16,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -930,7 +1069,7 @@ class _SectionLabel extends StatelessWidget {
       label.toUpperCase(),
       style: TextStyle(
         color: context.c.textoSecundario,
-        fontSize: 13,
+        fontSize: 16,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.8,
       ),
@@ -954,8 +1093,7 @@ class _RouteReadyState extends StatelessWidget {
             'Ruta cargada',
             style: TextStyle(
               color: AppTheme.verdePrimario,
-              fontFamily: 'Courier New',
-              fontSize: 13,
+              fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -964,8 +1102,7 @@ class _RouteReadyState extends StatelessWidget {
             'Presiona calcular tarifa',
             style: TextStyle(
               color: context.c.textoSecundario,
-              fontFamily: 'Courier New',
-              fontSize: 12,
+              fontSize: 16,
             ),
           ),
         ],

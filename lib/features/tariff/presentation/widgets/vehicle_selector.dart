@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../injection/injection_container.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
+import '../../../vehicles/domain/entities/vehicle_recommendation.dart';
 import '../../../vehicles/domain/repositories/i_vehicle_repository.dart';
 import '../viewmodels/tariff_viewmodel.dart';
 
@@ -15,9 +16,15 @@ IVehicleRepository vehicleRepository(Ref ref) {
 }
 
 @riverpod
-Stream<List<Vehicle>> vehiculos(Ref ref) {
+Future<List<Vehicle>> vehiculos(Ref ref) async {
   final repo = ref.watch(vehicleRepositoryProvider);
-  return repo.watchVehiculos().map((either) => either.getOrElse(() => []));
+  final result = await repo.getVehiculos();
+  final list = result.getOrElse(() => []);
+  // DEBUG: ver exactamente qué llega de Firebase
+  for (final v in list) {
+    debugPrint('[Vehicle] id="${v.id}" nombre="${v.nombre}" placa="${v.placa}" categoria=${v.categoria.name}');
+  }
+  return list;
 }
 
 class VehicleSelector extends ConsumerWidget {
@@ -31,6 +38,13 @@ class VehicleSelector extends ConsumerWidget {
     final selectedVehicle = ref.watch(
       tariffInputNotifierProvider.select((input) => input.vehiculo),
     );
+    final recomendacion = ref.watch(
+      tariffInputNotifierProvider.select((input) => input.recomendacion),
+    );
+    final seleccionManual = ref.watch(
+      tariffInputNotifierProvider.select((input) => input.seleccionManual),
+    );
+    final inputNotifier = ref.read(tariffInputNotifierProvider.notifier);
 
     return vehiculosAsync.when(
       loading: () => const LinearProgressIndicator(),
@@ -56,7 +70,7 @@ class VehicleSelector extends ConsumerWidget {
                 Text(
                   'Sin vehículos — agregar en Firebase',
                   style: TextStyle(
-                      color: AppTheme.textoSecundario, fontSize: 13),
+                      color: context.c.textoSecundario, fontSize: 13),
                 ),
               ],
             ),
@@ -69,16 +83,32 @@ class VehicleSelector extends ConsumerWidget {
             .firstWhere((v) => v?.id == selectedVehicle?.id,
                 orElse: () => null);
 
-        // Auto-selecciona el primer camión pequeño al cargar
+        final recVehicle =
+            _vehiculoPorRecomendacion(vehiculos: vehiculos, recomendacion: recomendacion);
+
         if (currentValue == null) {
-          final defaultVehicle = vehiculos.firstWhere(
-            (v) => v.categoria == CategoriaVehiculo.pequeno,
-            orElse: () => vehiculos.first,
-          );
-          Future.microtask(() => onSelected(defaultVehicle));
+          // Primera carga: selecciona el vehículo recomendado si existe,
+          // si no el primer pequeño (Forland).
+          // Fallback: busca el Forland (BSL) como vehículo predeterminado.
+          final defaultVehicle = (!seleccionManual && recVehicle != null)
+              ? recVehicle
+              : vehiculos.firstWhere(
+                  (v) => '${v.nombre} ${v.placa}'.toUpperCase().contains('BSL'),
+                  orElse: () => vehiculos.first,
+                );
+          Future.microtask(() => inputNotifier.autoSelectVehiculo(defaultVehicle));
+        } else if (!seleccionManual &&
+            recVehicle != null &&
+            selectedVehicle?.id != recVehicle.id) {
+          // La recomendación cambió (nuevo destino / nuevo peso / nueva ruta)
+          // y el usuario NO eligió manualmente → auto-cambiar.
+          Future.microtask(() => inputNotifier.autoSelectVehiculo(recVehicle));
         }
 
+        // La clave fuerza reconstrucción del DropdownButtonFormField cuando
+        // cambia el vehículo (initialValue solo aplica en initState).
         return DropdownButtonFormField<Vehicle>(
+          key: ValueKey(currentValue?.id ?? 'none'),
           initialValue: currentValue,
           decoration: InputDecoration(
             hintText: 'Seleccionar vehículo',
@@ -95,15 +125,7 @@ class VehicleSelector extends ConsumerWidget {
           items: vehiculos
               .map((v) => DropdownMenuItem(
                     value: v,
-                    child: Text(
-                      v.nombre,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Courier New',
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: _VehicleDropdownItem(vehicle: v),
                   ))
               .toList(),
           onChanged: (v) {
@@ -114,4 +136,82 @@ class VehicleSelector extends ConsumerWidget {
       },
     );
   }
+
+  Vehicle? _vehiculoPorRecomendacion({
+    required List<Vehicle> vehiculos,
+    required VehicleRecommendation? recomendacion,
+  }) {
+    if (recomendacion == null) return null;
+    // Firebase guarda placa="" y el número está dentro de nombre ("Placa: CCK-886").
+    // Busca la placa recomendada dentro del nombre normalizado del vehículo.
+    final placaBuscada = _norm(recomendacion.placaRecomendada);
+    try {
+      return vehiculos.firstWhere(
+        (v) => _norm(v.nombre).contains(placaBuscada) ||
+               _norm(v.placa) == placaBuscada,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String _norm(String? s) =>
+      (s ?? '').toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 }
+
+class _VehicleDropdownItem extends StatelessWidget {
+  final Vehicle vehicle;
+
+  const _VehicleDropdownItem({required this.vehicle});
+
+  static bool _esGnv(Vehicle v) {
+    // Firebase almacena la placa dentro de nombre ("Placa: CCK-886").
+    // CCK = Dongfeng GNV, BSL = Forland Gasolina.
+    final texto = '${v.nombre} ${v.placa}'.toUpperCase();
+    return texto.contains('CCK');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final esGnv = _esGnv(vehicle);
+    final fuelLabel = esGnv ? 'GNV' : 'GASOLINA';
+    final fuelColor =
+        esGnv ? const Color(0xFF4CAF50) : const Color(0xFFFF8C42);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            vehicle.nombre,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Courier New',
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: fuelColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: fuelColor.withValues(alpha: 0.5)),
+          ),
+          child: Text(
+            fuelLabel,
+            style: TextStyle(
+              color: fuelColor,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Courier New',
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

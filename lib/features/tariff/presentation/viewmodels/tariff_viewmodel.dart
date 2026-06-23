@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -5,11 +6,12 @@ import 'package:uuid/uuid.dart';
 import '../../../routes/domain/entities/route.dart';
 import '../../../routes/domain/usecases/get_routes_usecase.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
+import '../../../vehicles/domain/entities/vehicle_recommendation.dart';
+import '../../../vehicles/domain/services/vehicle_selection_service.dart';
 import '../../../tarifas/domain/entities/cotizacion_tarifario.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../injection/injection_container.dart';
 import '../../../historial/domain/repositories/i_historial_repository.dart';
-import '../../domain/entities/tarifa_config.dart';
 import 'tarifa_config_viewmodel.dart';
 
 part 'tariff_viewmodel.freezed.dart';
@@ -35,6 +37,10 @@ class TariffInput with _$TariffInput {
     @Default(0.0) double pesoKg,
     @Default(0) int resetCount,
     @Default(false) bool buscando,
+    VehicleRecommendation? recomendacion,
+    /// true cuando el usuario eligió un vehículo manualmente en el dropdown.
+    /// Evita que la recomendación automática sobreescriba su elección.
+    @Default(false) bool seleccionManual,
   }) = _TariffInput;
 
   const TariffInput._();
@@ -55,17 +61,60 @@ const _kOrigenFijo = Waypoint(
 
 @riverpod
 class TariffInputNotifier extends _$TariffInputNotifier {
+  static const _selectionService = VehicleSelectionService();
+
   @override
   TariffInput build() => const TariffInput(origen: _kOrigenFijo);
 
   void setOrigen(Waypoint waypoint) => state = state.copyWith(origen: waypoint);
-  void setDestino(Waypoint waypoint) => state = state.copyWith(destino: waypoint);
-  void setVehiculo(Vehicle vehicle) => state = state.copyWith(vehiculo: vehicle);
-  void setPeso(double kg) => state = state.copyWith(pesoKg: kg);
+
+  void setDestino(Waypoint waypoint) {
+    final rec = _recomendar(waypoint.distrito, state.pesoKg);
+    // DEBUG: eliminar cuando esté validado
+    debugPrint('[Destino] distrito="${waypoint.distrito}" → rec=${rec?.placaRecomendada}/${rec?.zona.name}');
+    state = state.copyWith(destino: waypoint, recomendacion: rec);
+  }
+
+  /// El usuario eligió un vehículo en el dropdown — bloquea el auto-switch.
+  void setVehiculo(Vehicle vehicle) =>
+      state = state.copyWith(vehiculo: vehicle, seleccionManual: true);
+
+  /// Auto-selección por recomendación — no bloquea futuros cambios automáticos.
+  void autoSelectVehiculo(Vehicle vehicle) =>
+      state = state.copyWith(vehiculo: vehicle, seleccionManual: false);
+
+  void setPeso(double kg) {
+    final rec = _recomendar(state.destino?.distrito, kg);
+    state = state.copyWith(pesoKg: kg, recomendacion: rec);
+  }
+
+  /// Llamado por TariffViewModel cuando Maps devuelve las rutas.
+  /// Actualiza la recomendación usando el resumen de la ruta principal,
+  /// lo que permite detectar Vía de Evitamiento / Panamericanas.
+  void actualizarPorRutas(List<RouteResult> rutas) {
+    final distrito = state.destino?.distrito;
+    if (distrito == null || distrito.isEmpty) return;
+    final resumenRuta = rutas.isNotEmpty ? rutas.first.resumenRuta : null;
+    final rec = _selectionService.recomendarConRuta(
+      distritoDestino: distrito,
+      pesoKg: state.pesoKg,
+      resumenRuta: resumenRuta,
+    );
+    state = state.copyWith(recomendacion: rec);
+  }
+
   void reset() => state = TariffInput(
         origen: _kOrigenFijo,
         resetCount: state.resetCount + 1,
       );
+
+  VehicleRecommendation? _recomendar(String? distrito, double pesoKg) {
+    if (distrito == null || distrito.isEmpty) return null;
+    return _selectionService.recomendar(
+      distritoDestino: distrito,
+      pesoKg: pesoKg,
+    );
+  }
 }
 
 // ── Providers de casos de uso ──────────────────────────────────────────────────
@@ -107,6 +156,11 @@ class TariffViewModel extends _$TariffViewModel {
       TariffState.error,
       (routes) {
         _rutasCargadas = routes;
+        // Actualiza recomendación con el resumen de ruta real de Maps
+        // (permite detectar Vía de Evitamiento, Panamericanas, etc.)
+        ref
+            .read(tariffInputNotifierProvider.notifier)
+            .actualizarPorRutas(routes);
         return TariffState.routesLoaded(routes);
       },
     );
@@ -127,8 +181,7 @@ class TariffViewModel extends _$TariffViewModel {
     final rutaPrincipal = _rutasCargadas.isNotEmpty ? _rutasCargadas.first : null;
     final distanciaKm = rutaPrincipal?.distanciaKm ?? 0;
 
-    final config = ref.read(tarifaConfigNotifierProvider).valueOrNull ??
-        TarifaConfig.defaults;
+    final config = await ref.read(tarifaConfigNotifierProvider.future);
 
     final tarifaPorKm = config.tarifaPara(vehiculo.id);
 

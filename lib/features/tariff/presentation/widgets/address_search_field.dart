@@ -174,7 +174,7 @@ class _SugerenciasDropdown extends StatelessWidget {
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.superficieCard,
+          color: context.c.superficieCard,
           borderRadius: BorderRadius.circular(AppTheme.borderRadiusSm),
           border: Border.all(color: AppTheme.bordeInactivo),
           boxShadow: [
@@ -213,10 +213,10 @@ class _SugerenciasDropdown extends StatelessWidget {
                           Expanded(
                             child: Text(
                               e.value,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Courier New',
                                 fontSize: 13,
-                                color: AppTheme.textoPrimario,
+                                color: context.c.textoPrimario,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

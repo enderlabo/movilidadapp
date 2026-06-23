@@ -44,20 +44,20 @@ class TarifasScreen extends ConsumerWidget {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Text(
                     '[ SIN TARIFAS ]',
                     style: TextStyle(
-                      color: AppTheme.textoSecundario,
+                      color: context.c.textoSecundario,
                       fontSize: 18,
                       fontFamily: 'Courier New',
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
                     'Crea tu primera tarifa con el botón +',
                     style: TextStyle(
-                      color: AppTheme.textoMuted,
+                      color: context.c.textoMuted,
                       fontFamily: 'Courier New',
                       fontSize: 13,
                     ),
@@ -86,8 +86,8 @@ class TarifasScreen extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingSm),
                     child: Text(
                       '// $ruta',
-                      style: const TextStyle(
-                        color: AppTheme.textoSecundario,
+                      style: TextStyle(
+                        color: context.c.textoSecundario,
                         fontFamily: 'Courier New',
                         fontSize: 12,
                         letterSpacing: 0.5,
@@ -120,15 +120,15 @@ class TarifasScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.superficieCard,
-        title: const Text(
+        backgroundColor: context.c.superficieCard,
+        title: Text(
           'Eliminar tarifa',
-          style: TextStyle(color: AppTheme.textoPrimario, fontFamily: 'Courier New'),
+          style: TextStyle(color: context.c.textoPrimario, fontFamily: 'Courier New'),
         ),
         content: Text(
           '¿Eliminar tarifa para ${tarifa.descripcionRuta} - ${tarifa.categoria.displayName}?',
-          style: const TextStyle(
-            color: AppTheme.textoSecundario,
+          style: TextStyle(
+            color: context.c.textoSecundario,
             fontFamily: 'Courier New',
             fontSize: 13,
           ),
@@ -136,7 +136,7 @@ class TarifasScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCELAR', style: TextStyle(color: AppTheme.textoMuted)),
+            child: Text('CANCELAR', style: TextStyle(color: context.c.textoMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -198,16 +198,16 @@ class _TarifaCard extends StatelessWidget {
               ),
             ),
           ),
-          const Text(
+          Text(
             'incl. recojo',
             style: TextStyle(
-              color: AppTheme.textoMuted,
+              color: context.c.textoMuted,
               fontFamily: 'Courier New',
               fontSize: 11,
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.textoSecundario),
+            icon: Icon(Icons.edit_outlined, size: 18, color: context.c.textoSecundario),
             onPressed: onEdit,
           ),
           IconButton(

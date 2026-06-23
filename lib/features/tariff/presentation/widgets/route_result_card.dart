@@ -119,7 +119,7 @@ class _RouteHeader extends StatelessWidget {
                 '${result.distanciaKm.toStringAsFixed(1)} km · '
                 '${_formatDuracion(result.duracionEstimada)}',
                 style: TextStyle(
-                  color: AppTheme.textoSecundario,
+                  color: context.c.textoSecundario,
                   fontSize: 12,
                 ),
               ),
@@ -217,7 +217,7 @@ class _TotalFila extends StatelessWidget {
               fmtDolares.format(result.totalDolares),
               style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.textoSecundario,
+                color: context.c.textoSecundario,
               ),
             ),
           ],

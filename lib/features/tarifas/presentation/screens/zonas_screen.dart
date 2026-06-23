@@ -52,20 +52,20 @@ class ZonasScreen extends ConsumerWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         '[ SIN ZONAS CONFIGURADAS ]',
                         style: TextStyle(
-                          color: AppTheme.textoSecundario,
+                          color: context.c.textoSecundario,
                           fontSize: 16,
                           fontFamily: 'Courier New',
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: AppTheme.spacingMd),
-                      const Text(
+                      Text(
                         'Carga las zonas iniciales para empezar',
                         style: TextStyle(
-                          color: AppTheme.textoMuted,
+                          color: context.c.textoMuted,
                           fontFamily: 'Courier New',
                           fontSize: 13,
                         ),
@@ -139,18 +139,18 @@ class ZonasScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.superficieCard,
+        backgroundColor: context.c.superficieCard,
         title: Text(
           'Eliminar ${zona.nombre}',
-          style: const TextStyle(
-            color: AppTheme.textoPrimario,
+          style: TextStyle(
+            color: context.c.textoPrimario,
             fontFamily: 'Courier New',
           ),
         ),
         content: Text(
           '¿Desactivar ${zona.nombre}? Los distritos ya no tendrán tarifa asignada.',
-          style: const TextStyle(
-            color: AppTheme.textoSecundario,
+          style: TextStyle(
+            color: context.c.textoSecundario,
             fontFamily: 'Courier New',
             fontSize: 13,
           ),
@@ -158,9 +158,9 @@ class ZonasScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'CANCELAR',
-              style: TextStyle(color: AppTheme.textoMuted),
+              style: TextStyle(color: context.c.textoMuted),
             ),
           ),
           TextButton(
@@ -228,8 +228,8 @@ class _ZonaCard extends StatelessWidget {
                   children: [
                     Text(
                       zona.nombre,
-                      style: const TextStyle(
-                        color: AppTheme.textoPrimario,
+                      style: TextStyle(
+                        color: context.c.textoPrimario,
                         fontFamily: 'Courier New',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -256,10 +256,10 @@ class _ZonaCard extends StatelessWidget {
               Column(
                 children: [
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.edit_outlined,
                       size: 18,
-                      color: AppTheme.textoSecundario,
+                      color: context.c.textoSecundario,
                     ),
                     onPressed: onEdit,
                     tooltip: 'Editar',
@@ -286,8 +286,8 @@ class _ZonaCard extends StatelessWidget {
               zona.distritos.join(', '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppTheme.textoMuted,
+              style: TextStyle(
+                color: context.c.textoMuted,
                 fontFamily: 'Courier New',
                 fontSize: 11,
                 height: 1.4,

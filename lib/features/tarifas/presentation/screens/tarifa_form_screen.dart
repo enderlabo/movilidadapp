@@ -126,10 +126,10 @@ class _TarifaFormScreenState extends ConsumerState<TarifaFormScreen> {
                     ),
                   ),
                   const SizedBox(width: AppTheme.spacingSm),
-                  const Text(
+                  Text(
                     'Mismo distrito (intra-distrital)',
                     style: TextStyle(
-                      color: AppTheme.textoSecundario,
+                      color: context.c.textoSecundario,
                       fontFamily: 'Courier New',
                       fontSize: 13,
                     ),
@@ -183,7 +183,7 @@ class _TarifaFormScreenState extends ConsumerState<TarifaFormScreen> {
                   if (states.contains(WidgetState.selected)) {
                     return AppTheme.verdePrimario;
                   }
-                  return AppTheme.textoMuted;
+                  return context.c.textoMuted;
                 }),
                 side: const WidgetStatePropertyAll(
                   BorderSide(color: AppTheme.bordeInactivo),
@@ -203,13 +203,13 @@ class _TarifaFormScreenState extends ConsumerState<TarifaFormScreen> {
                     child: TextFormField(
                       controller: _precioMinController,
                       keyboardType: TextInputType.number,
-                      style: const TextStyle(
-                        color: AppTheme.textoPrimario,
+                      style: TextStyle(
+                        color: context.c.textoPrimario,
                         fontFamily: 'Courier New',
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Mínimo S/',
-                        labelStyle: TextStyle(color: AppTheme.textoMuted, fontFamily: 'Courier New', fontSize: 12),
+                        labelStyle: TextStyle(color: context.c.textoMuted, fontFamily: 'Courier New', fontSize: 12),
                       ),
                       validator: (v) {
                         if (_esIntraDistrito && (v == null || v.isEmpty)) return 'Requerido';
@@ -223,13 +223,13 @@ class _TarifaFormScreenState extends ConsumerState<TarifaFormScreen> {
                     child: TextFormField(
                       controller: _precioMaxController,
                       keyboardType: TextInputType.number,
-                      style: const TextStyle(
-                        color: AppTheme.textoPrimario,
+                      style: TextStyle(
+                        color: context.c.textoPrimario,
                         fontFamily: 'Courier New',
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Máximo S/',
-                        labelStyle: TextStyle(color: AppTheme.textoMuted, fontFamily: 'Courier New', fontSize: 12),
+                        labelStyle: TextStyle(color: context.c.textoMuted, fontFamily: 'Courier New', fontSize: 12),
                       ),
                       validator: (v) {
                         if (_esIntraDistrito && (v == null || v.isEmpty)) return 'Requerido';
@@ -246,8 +246,8 @@ class _TarifaFormScreenState extends ConsumerState<TarifaFormScreen> {
               TextFormField(
                 controller: _precioController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(
-                  color: AppTheme.textoPrimario,
+                style: TextStyle(
+                  color: context.c.textoPrimario,
                   fontFamily: 'Courier New',
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -340,8 +340,8 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
-        color: AppTheme.textoSecundario,
+      style: TextStyle(
+        color: context.c.textoSecundario,
         fontFamily: 'Courier New',
         fontSize: 11,
         letterSpacing: 1.2,
@@ -371,15 +371,15 @@ class _DistritoDropdown extends StatelessWidget {
       value: value,
       hint: Text(
         hint,
-        style: const TextStyle(color: AppTheme.textoMuted, fontFamily: 'Courier New', fontSize: 13),
+        style: TextStyle(color: context.c.textoMuted, fontFamily: 'Courier New', fontSize: 13),
       ),
-      dropdownColor: AppTheme.superficieCard,
-      style: const TextStyle(color: AppTheme.textoPrimario, fontFamily: 'Courier New', fontSize: 13),
+      dropdownColor: context.c.superficieCard,
+      style: TextStyle(color: context.c.textoPrimario, fontFamily: 'Courier New', fontSize: 13),
       decoration: InputDecoration(
         enabled: enabled,
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.borderRadiusSm),
-          borderSide: const BorderSide(color: AppTheme.textoMuted),
+          borderSide: BorderSide(color: context.c.textoMuted),
         ),
       ),
       items: _distritosLima

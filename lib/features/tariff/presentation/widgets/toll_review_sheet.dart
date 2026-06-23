@@ -100,7 +100,7 @@ class _TollReviewContent extends ConsumerWidget {
             'Corrígelos si el monto es incorrecto.',
             style: TextStyle(
               fontSize: 13,
-              color: AppTheme.textoSecundario,
+              color: context.c.textoSecundario,
               height: 1.4,
             ),
           ),
@@ -271,7 +271,7 @@ class _TollReviewRowState extends ConsumerState<_TollReviewRow> {
                           fontWeight: FontWeight.w600,
                           color: fueCorregido
                               ? AppTheme.azulPrimario
-                              : AppTheme.textoPrimario,
+                              : context.c.textoPrimario,
                         ),
                       ),
                       const SizedBox(width: 4),
