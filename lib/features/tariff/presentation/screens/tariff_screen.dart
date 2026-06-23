@@ -175,6 +175,11 @@ class _DesktopWebLayout extends ConsumerWidget {
             onPressed: () => context.push(AppRoutes.historial),
           ),
           IconButton(
+            icon: const Icon(Icons.gps_fixed),
+            tooltip: 'Portal GPS',
+            onPressed: () => context.push(AppRoutes.gps),
+          ),
+          IconButton(
             icon: const Icon(Icons.info_outline),
             tooltip: 'Información del App',
             onPressed: () => context.push(AppRoutes.peajes),

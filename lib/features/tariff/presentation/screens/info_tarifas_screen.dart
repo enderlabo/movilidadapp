@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../router/app_router.dart';
 import '../../domain/entities/tarifa_config.dart';
 import '../viewmodels/tarifa_config_viewmodel.dart';
 import '../widgets/vehicle_selector.dart';
@@ -24,6 +26,13 @@ class InfoTarifasScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
+            // ── RASTREO GPS ──────────────────────────────────────────
+            const _SectionTitle(label: 'RASTREO GPS'),
+            const SizedBox(height: AppTheme.spacingMd),
+            const _GpsPortalCard(),
+
+            const SizedBox(height: AppTheme.spacingXl),
 
             // ── RUTAS EN EL MAPA ─────────────────────────────────────
             const _SectionTitle(label: 'RUTAS EN EL MAPA'),
@@ -277,6 +286,65 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Tarjeta del portal GPS ────────────────────────────────────────────────────
+
+class _GpsPortalCard extends StatelessWidget {
+  const _GpsPortalCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.gps),
+      child: GlassCard(
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.azulPrimario.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.azulPrimario, width: 2),
+              ),
+              child: const Icon(Icons.gps_fixed,
+                  color: AppTheme.azulPrimario, size: 22),
+            ),
+            const SizedBox(width: AppTheme.spacingMd),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Portal GPS Alarma Inteligente',
+                    style: TextStyle(
+                      color: context.c.textoPrimario,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Abre el rastreo en vivo de las unidades dentro de la app. '
+                    'Inicias sesión una vez y la sesión queda guardada.',
+                    style: TextStyle(
+                      color: context.c.textoSecundario,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacingSm),
+            Icon(Icons.chevron_right, color: context.c.textoMuted),
+          ],
+        ),
+      ),
     );
   }
 }

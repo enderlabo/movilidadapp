@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../features/tariff/presentation/screens/tariff_screen.dart';
 import '../features/tariff/presentation/screens/info_tarifas_screen.dart';
 import '../features/historial/presentation/screens/historial_screen.dart';
+import '../features/gps/presentation/screens/gps_portal_screen.dart';
 
 /// Rutas nombradas — evita strings sueltos por toda la app (DRY).
 abstract final class AppRoutes {
@@ -14,6 +15,7 @@ abstract final class AppRoutes {
   static const vehiculos = '/vehiculos';
   static const vehiculoForm = '/vehiculos/form';
   static const peajes = '/peajes';
+  static const gps = '/gps';
 }
 
 abstract final class AppRouter {
@@ -50,6 +52,11 @@ abstract final class AppRouter {
         path: AppRoutes.peajes,
         name: 'peajes',
         builder: (context, state) => const InfoTarifasScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.gps,
+        name: 'gps',
+        builder: (context, state) => const GpsPortalScreen(),
       ),
     ],
   );
