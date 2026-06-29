@@ -2,11 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import '../core/network/local_cache.dart';
-import '../features/tariff/domain/services/tariff_calculator_service.dart';
-import '../features/tariff/domain/usecases/calculate_tariff_usecase.dart';
-import '../features/tariff/domain/repositories/i_tariff_repository.dart';
-import '../features/tariff/data/repositories/tariff_repository_impl.dart';
-import '../features/tariff/data/repositories/quotation_repository_impl.dart';
 import '../features/routes/domain/usecases/get_routes_usecase.dart';
 import '../features/routes/domain/repositories/i_route_repository.dart';
 import '../features/routes/data/repositories/route_repository_impl.dart';
@@ -20,6 +15,8 @@ import '../features/tarifas/domain/repositories/i_tarifa_zona_repository.dart';
 import '../features/tarifas/data/repositories/tarifa_zona_repository_impl.dart';
 import '../features/tarifas/domain/repositories/i_zona_tarifaria_repository.dart';
 import '../features/tarifas/data/repositories/zona_tarifaria_repository_impl.dart';
+import '../features/tarifas/domain/services/cotizacion_calculator_service.dart';
+import '../features/tarifas/domain/usecases/calcular_cotizacion_usecase.dart';
 import '../features/historial/domain/repositories/i_historial_repository.dart';
 import '../features/historial/data/repositories/historial_repository_impl.dart';
 
@@ -44,8 +41,8 @@ abstract final class InjectionContainer {
     sl.registerLazySingleton(() => LocalCache());
 
     // ── Domain services (pure, no I/O) ────────────────────────────────────────
-    sl.registerLazySingleton(() => const TariffCalculatorService());
     sl.registerLazySingleton(() => const TollMatcherService());
+    sl.registerLazySingleton(() => const CotizacionCalculatorService());
 
     // ── Repositories ──────────────────────────────────────────────────────────
     sl.registerLazySingleton<IVehicleRepository>(
@@ -54,14 +51,6 @@ abstract final class InjectionContainer {
 
     sl.registerLazySingleton<ITollRepository>(
       () => TollRepositoryImpl(firestore: sl()),
-    );
-
-    sl.registerLazySingleton<ITariffRepository>(
-      () => TariffRepositoryImpl(dio: sl(), cache: sl()),
-    );
-
-    sl.registerLazySingleton<IQuotationRepository>(
-      () => QuotationRepositoryImpl(firestore: sl(), cache: sl()),
     );
 
     sl.registerLazySingleton<IRouteRepository>(
@@ -93,10 +82,8 @@ abstract final class InjectionContainer {
     );
 
     sl.registerLazySingleton(
-      () => CalculateTariffUseCase(
-        tariffRepository: sl<ITariffRepository>(),
-        quotationRepository: sl<IQuotationRepository>(),
-        calculatorService: sl<TariffCalculatorService>(),
+      () => CalcularCotizacionUseCase(
+        calculator: sl<CotizacionCalculatorService>(),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/utils/repository_guard.dart';
 import '../../domain/entities/toll.dart';
 import '../../domain/repositories/i_toll_repository.dart';
 
@@ -13,16 +14,14 @@ class TollRepositoryImpl implements ITollRepository {
       : _firestore = firestore;
 
   @override
-  Future<Either<Failure, List<Toll>>> getAllTolls() async {
-    try {
+  Future<Either<Failure, List<Toll>>> getAllTolls() {
+    return guardFuture(() async {
       final snap = await _firestore
           .collection(_collection)
           .where('activo', isEqualTo: true)
           .get();
-      return Right(snap.docs.map(_fromDoc).toList());
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      return snap.docs.map(_fromDoc).toList();
+    });
   }
 
   @override
@@ -44,13 +43,11 @@ class TollRepositoryImpl implements ITollRepository {
   }
 
   @override
-  Future<Either<Failure, Toll>> createToll(Toll toll) async {
-    try {
+  Future<Either<Failure, Toll>> createToll(Toll toll) {
+    return guardFuture(() async {
       await _firestore.collection(_collection).doc(toll.id).set(_toMap(toll));
-      return Right(toll);
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      return toll;
+    });
   }
 
   @override
@@ -59,8 +56,8 @@ class TollRepositoryImpl implements ITollRepository {
     required TipoVehiculo tipoVehiculo,
     required double nuevoMontoSoles,
     String? nota,
-  }) async {
-    try {
+  }) {
+    return guardFuture(() async {
       final ref = _firestore.collection(_collection).doc(tollId);
       await _firestore.runTransaction((tx) async {
         final snap = await tx.get(ref);
@@ -79,38 +76,27 @@ class TollRepositoryImpl implements ITollRepository {
       });
 
       final updated = await _firestore.collection(_collection).doc(tollId).get();
-      return Right(_fromDoc(updated));
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      return _fromDoc(updated);
+    });
   }
 
   @override
-  Future<Either<Failure, Unit>> deactivateToll(String tollId) async {
-    try {
+  Future<Either<Failure, Unit>> deactivateToll(String tollId) {
+    return guardFuture(() async {
       await _firestore.collection(_collection).doc(tollId).update({
         'activo': false,
         'actualizadoEn': DateTime.now().toIso8601String(),
       });
-      return const Right(unit);
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      return unit;
+    });
   }
 
   @override
   Stream<Either<Failure, List<Toll>>> watchTolls() {
-    return _firestore
-        .collection(_collection)
-        .where('activo', isEqualTo: true)
-        .snapshots()
-        .map<Either<Failure, List<Toll>>>((snap) {
-      try {
-        return Right(snap.docs.map(_fromDoc).toList());
-      } catch (e) {
-        return Left(Failure.database(message: e.toString()));
-      }
-    });
+    return guardStream(
+      _firestore.collection(_collection).where('activo', isEqualTo: true).snapshots(),
+      (snap) => snap.docs.map(_fromDoc).toList(),
+    );
   }
 
   // ── Firestore serialization ───────────────────────────────────────────────

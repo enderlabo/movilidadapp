@@ -1,6 +1,5 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../../core/error/failures.dart';
+import '../../../../core/utils/async_command.dart';
 import '../../../../injection/injection_container.dart';
 import '../../domain/entities/tarifa_zona.dart';
 import '../../domain/repositories/i_tarifa_zona_repository.dart';
@@ -23,21 +22,13 @@ class TarifasNotifier extends _$TarifasNotifier {
   @override
   AsyncValue<void> build() => const AsyncData(null);
 
-  Future<void> guardar(TarifaZona tarifa) async {
-    state = const AsyncLoading();
-    final result = await ref.read(tarifaZonaRepoProvider).saveTarifa(tarifa);
-    state = result.fold(
-      (f) => AsyncError(f.userMessage, StackTrace.current),
-      (_) => const AsyncData(null),
-    );
-  }
+  Future<void> guardar(TarifaZona tarifa) => runEitherCommand(
+        () => ref.read(tarifaZonaRepoProvider).saveTarifa(tarifa),
+        setState: (s) => state = s,
+      );
 
-  Future<void> eliminar(String id) async {
-    state = const AsyncLoading();
-    final result = await ref.read(tarifaZonaRepoProvider).deleteTarifa(id);
-    state = result.fold(
-      (f) => AsyncError(f.userMessage, StackTrace.current),
-      (_) => const AsyncData(null),
-    );
-  }
+  Future<void> eliminar(String id) => runEitherCommand(
+        () => ref.read(tarifaZonaRepoProvider).deleteTarifa(id),
+        setState: (s) => state = s,
+      );
 }

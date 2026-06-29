@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'zona_tarifaria.freezed.dart';
 
 @freezed
-class ZonaTarifaria with _$ZonaTarifaria {
+abstract class ZonaTarifaria with _$ZonaTarifaria {
   const factory ZonaTarifaria({
     required String id,
     required String zona,

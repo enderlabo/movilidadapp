@@ -68,9 +68,9 @@ class _TarifaFormScreenState extends ConsumerState<TarifaFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.tarifa != null;
-    final notifierState = ref.watch(tarifasNotifierProvider);
+    final notifierState = ref.watch(tarifasProvider);
 
-    ref.listen<AsyncValue<void>>(tarifasNotifierProvider, (_, next) {
+    ref.listen<AsyncValue<void>>(tarifasProvider, (_, next) {
       next.whenOrNull(
         data: (_) => Navigator.of(context).pop(),
         error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
@@ -328,7 +328,7 @@ class _TarifaFormScreenState extends ConsumerState<TarifaFormScreen> {
       precioMaxSoles: esIntra ? precioMax : null,
     );
 
-    ref.read(tarifasNotifierProvider.notifier).guardar(tarifa);
+    ref.read(tarifasProvider.notifier).guardar(tarifa);
   }
 }
 

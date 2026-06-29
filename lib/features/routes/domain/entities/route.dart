@@ -5,7 +5,7 @@ part 'route.freezed.dart';
 /// Una ruta retornada por Google Maps Routes API.
 /// El dominio no sabe si vino del SDK móvil o de la JS API web.
 @freezed
-class RouteResult with _$RouteResult {
+abstract class RouteResult with _$RouteResult {
   const factory RouteResult({
     required String id,
     required String etiqueta,          // "Ruta más rápida", "Ruta alternativa"
@@ -19,7 +19,7 @@ class RouteResult with _$RouteResult {
 }
 
 @freezed
-class PuntoRuta with _$PuntoRuta {
+abstract class PuntoRuta with _$PuntoRuta {
   const factory PuntoRuta({
     required double lat,
     required double lng,
@@ -28,7 +28,7 @@ class PuntoRuta with _$PuntoRuta {
 
 /// Par origen–destino que el usuario ingresa.
 @freezed
-class Waypoint with _$Waypoint {
+abstract class Waypoint with _$Waypoint {
   const factory Waypoint({
     required String direccion,     // texto legible
     required double lat,

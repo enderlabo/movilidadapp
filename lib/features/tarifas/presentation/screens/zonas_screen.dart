@@ -11,8 +11,8 @@ class ZonasScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final zonasAsync = ref.watch(zonasStreamProvider);
-    final notifierState = ref.watch(zonasNotifierProvider);
-    final notifier = ref.read(zonasNotifierProvider.notifier);
+    final notifierState = ref.watch(zonasProvider);
+    final notifier = ref.read(zonasProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(

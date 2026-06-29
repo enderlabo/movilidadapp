@@ -12,10 +12,10 @@ class InfoTarifasScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(tarifaConfigNotifierProvider).valueOrNull ??
+    final config = ref.watch(tarifaConfigProvider).value ??
         TarifaConfig.defaults;
     final pct = (config.factorTiempo * 100).toStringAsFixed(0);
-    final vehiculos = ref.watch(vehiculosProvider).valueOrNull ?? [];
+    final vehiculos = ref.watch(vehiculosProvider).value ?? [];
 
     return Scaffold(
       appBar: AppBar(

@@ -23,7 +23,7 @@ enum ZonaLima {
 /// [rendimientoKmPorGalonVacio]   — km/galón en el viaje de retorno sin carga.
 /// Por defecto el vehículo siempre sale cargado.
 @freezed
-class Vehicle with _$Vehicle {
+abstract class Vehicle with _$Vehicle {
   const factory Vehicle({
     required String id,
     required String nombre,
@@ -75,5 +75,29 @@ enum CategoriaVehiculo {
   String get shortName => switch (this) {
         CategoriaVehiculo.pequeno => 'PEQUEÑO',
         CategoriaVehiculo.grande => 'GRANDE',
+      };
+
+  /// Canonical persistence key (matches [name]: 'pequeno'/'grande').
+  /// Used by the `historial` collection.
+  String get key => name;
+
+  /// Parses a persistence key; falls back to [pequeno] for unknown values.
+  static CategoriaVehiculo fromKey(String? key) =>
+      CategoriaVehiculo.values.firstWhere(
+        (c) => c.name == key,
+        orElse: () => CategoriaVehiculo.pequeno,
+      );
+
+  /// Legacy English key used by the `vehicles` and `tarifas` collections.
+  String get firestoreEn => switch (this) {
+        CategoriaVehiculo.pequeno => 'small',
+        CategoriaVehiculo.grande => 'large',
+      };
+
+  /// Parses the English key (also accepts the Spanish variants).
+  static CategoriaVehiculo fromFirestoreEn(String? s) => switch (s) {
+        'small' || 'pequeno' => CategoriaVehiculo.pequeno,
+        'large' || 'grande' => CategoriaVehiculo.grande,
+        _ => CategoriaVehiculo.pequeno,
       };
 }

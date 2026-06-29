@@ -36,15 +36,15 @@ class VehicleSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vehiculosAsync = ref.watch(vehiculosProvider);
     final selectedVehicle = ref.watch(
-      tariffInputNotifierProvider.select((input) => input.vehiculo),
+      tariffInputProvider.select((input) => input.vehiculo),
     );
     final recomendacion = ref.watch(
-      tariffInputNotifierProvider.select((input) => input.recomendacion),
+      tariffInputProvider.select((input) => input.recomendacion),
     );
     final seleccionManual = ref.watch(
-      tariffInputNotifierProvider.select((input) => input.seleccionManual),
+      tariffInputProvider.select((input) => input.seleccionManual),
     );
-    final inputNotifier = ref.read(tariffInputNotifierProvider.notifier);
+    final inputNotifier = ref.read(tariffInputProvider.notifier);
 
     return vehiculosAsync.when(
       loading: () => const LinearProgressIndicator(),

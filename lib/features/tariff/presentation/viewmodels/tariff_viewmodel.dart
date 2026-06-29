@@ -2,23 +2,23 @@ import 'package:flutter/foundation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:uuid/uuid.dart';
 import '../../../routes/domain/entities/route.dart';
 import '../../../routes/domain/usecases/get_routes_usecase.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../../../vehicles/domain/entities/vehicle_recommendation.dart';
 import '../../../vehicles/domain/services/vehicle_selection_service.dart';
 import '../../../tarifas/domain/entities/cotizacion_tarifario.dart';
+import '../../../tarifas/domain/usecases/calcular_cotizacion_usecase.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../injection/injection_container.dart';
-import '../../../historial/domain/repositories/i_historial_repository.dart';
+import '../../../historial/presentation/viewmodels/historial_viewmodel.dart';
 import 'tarifa_config_viewmodel.dart';
 
 part 'tariff_viewmodel.freezed.dart';
 part 'tariff_viewmodel.g.dart';
 
 @freezed
-class TariffState with _$TariffState {
+sealed class TariffState with _$TariffState {
   const factory TariffState.initial() = _Initial;
   const factory TariffState.loadingRoutes() = _LoadingRoutes;
   const factory TariffState.loadingTariff() = _LoadingTariff;
@@ -29,7 +29,7 @@ class TariffState with _$TariffState {
 }
 
 @freezed
-class TariffInput with _$TariffInput {
+abstract class TariffInput with _$TariffInput {
   const factory TariffInput({
     Waypoint? origen,
     Waypoint? destino,
@@ -122,6 +122,11 @@ class TariffInputNotifier extends _$TariffInputNotifier {
 @riverpod
 GetRoutesUseCase getRoutesUseCase(Ref ref) => sl<GetRoutesUseCase>();
 
+/// Manual provider (no codegen) for the quotation calculation use case.
+final calcularCotizacionUseCaseProvider = Provider<CalcularCotizacionUseCase>(
+  (ref) => sl<CalcularCotizacionUseCase>(),
+);
+
 
 // ── ViewModel principal — solo gestiona el estado de la operación ──────────────
 
@@ -130,7 +135,7 @@ class TariffViewModel extends _$TariffViewModel {
   @override
   TariffState build() {
     // Auto-busca rutas en el mapa en cuanto se tienen A y B
-    ref.listen<TariffInput>(tariffInputNotifierProvider, (prev, next) {
+    ref.listen<TariffInput>(tariffInputProvider, (prev, next) {
       final origenCambio = prev?.origen != next.origen;
       final destinoCambio = prev?.destino != next.destino;
       if (next.puedeCalcularRutas && (origenCambio || destinoCambio)) {
@@ -144,7 +149,7 @@ class TariffViewModel extends _$TariffViewModel {
   List<RouteResult> get rutasCargadas => _rutasCargadas;
 
   Future<void> buscarRutas() async {
-    final input = ref.read(tariffInputNotifierProvider);
+    final input = ref.read(tariffInputProvider);
     if (!input.puedeCalcularRutas) return;
     state = const TariffState.loadingRoutes();
     final useCase = ref.read(getRoutesUseCaseProvider);
@@ -159,7 +164,7 @@ class TariffViewModel extends _$TariffViewModel {
         // Actualiza recomendación con el resumen de ruta real de Maps
         // (permite detectar Vía de Evitamiento, Panamericanas, etc.)
         ref
-            .read(tariffInputNotifierProvider.notifier)
+            .read(tariffInputProvider.notifier)
             .actualizarPorRutas(routes);
         return TariffState.routesLoaded(routes);
       },
@@ -167,7 +172,7 @@ class TariffViewModel extends _$TariffViewModel {
   }
 
   Future<void> calcularTarifa() async {
-    final input = ref.read(tariffInputNotifierProvider);
+    final input = ref.read(tariffInputProvider);
     if (!input.puedeCalcularTarifa) return;
 
     if (_rutasCargadas.isEmpty) await buscarRutas();
@@ -179,34 +184,19 @@ class TariffViewModel extends _$TariffViewModel {
     final vehiculo = input.vehiculo!;
 
     final rutaPrincipal = _rutasCargadas.isNotEmpty ? _rutasCargadas.first : null;
-    final distanciaKm = rutaPrincipal?.distanciaKm ?? 0;
 
-    final config = await ref.read(tarifaConfigNotifierProvider.future);
+    final config = await ref.read(tarifaConfigProvider.future);
 
-    final tarifaPorKm = config.tarifaPara(vehiculo.id);
-
-    final pesoKg = input.pesoKg;
-    final costoBaseKm = tarifaPorKm * distanciaKm;
-    final costoKilometraje = costoBaseKm * 2;           // × 2: ida y vuelta
-    final costoTiempo     = costoBaseKm * config.factorTiempo * 2; // × 2: ida y vuelta
-    final costoPeso       = pesoKg * config.tarifaPorKg * 2;       // × 2: ida y vuelta
-    final precioTotal = costoKilometraje + costoTiempo + costoPeso;
-
-    final cotizacion = CotizacionTarifario(
-      id: const Uuid().v4(),
-      categoria: vehiculo.categoria,
-      vehiculoNombre: vehiculo.nombre,
-      origenDireccion: origen.direccion,
-      destinoDireccion: destino.direccion,
-      tarifaPorKm: tarifaPorKm,
-      distanciaKm: distanciaKm,
-      costoKilometraje: costoKilometraje,
-      costoTiempo: costoTiempo,
-      pesoKg: pesoKg,
-      costoPeso: costoPeso,
-      precioTotal: precioTotal,
-      duracionEstimada: rutaPrincipal?.duracionEstimada ?? Duration.zero,
-      generadaEn: DateTime.now(),
+    final cotizacion = ref.read(calcularCotizacionUseCaseProvider)(
+      CalcularCotizacionParams(
+        vehiculo: vehiculo,
+        config: config,
+        distanciaKm: rutaPrincipal?.distanciaKm ?? 0,
+        pesoKg: input.pesoKg,
+        duracionEstimada: rutaPrincipal?.duracionEstimada ?? Duration.zero,
+        origenDireccion: origen.direccion,
+        destinoDireccion: destino.direccion,
+      ),
     );
 
     state = TariffState.success(cotizacion);
@@ -215,7 +205,7 @@ class TariffViewModel extends _$TariffViewModel {
   Future<void> guardar() async {
     final cotizacion = state.whenOrNull(success: (c) => c);
     if (cotizacion == null) return;
-    await sl<IHistorialRepository>().guardar(cotizacion);
+    await ref.read(historialRepositoryProvider).guardar(cotizacion);
     resetear();
   }
 
@@ -224,6 +214,6 @@ class TariffViewModel extends _$TariffViewModel {
   void resetear() {
     _rutasCargadas = [];
     state = const TariffState.initial();
-    ref.read(tariffInputNotifierProvider.notifier).reset();
+    ref.read(tariffInputProvider.notifier).reset();
   }
 }

@@ -1,4 +1,9 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../../vehicles/domain/entities/vehicle.dart';
+
+// Re-exports `TipoVehiculo` (previously defined here) so consumers that used to
+// get it through this file keep compiling.
+export '../../../vehicles/domain/entities/vehicle.dart' show TipoVehiculo;
 
 part 'toll.freezed.dart';
 
@@ -6,7 +11,7 @@ part 'toll.freezed.dart';
 /// Se crea la primera vez que Maps lo detecta y la jefa confirma/corrige el monto.
 /// Crece orgánicamente: Lima primero, luego todo Perú.
 @freezed
-class Toll with _$Toll {
+abstract class Toll with _$Toll {
   const factory Toll({
     required String id,
     required String nombre,          // "Peaje Chao", "Variante de Pasamayo"
@@ -47,29 +52,15 @@ enum TollFuente {
   bool get requiereConfirmacion => this == TollFuente.detectadoMaps;
 }
 
-/// Tipos de vehículo — espejo del Vehicle entity para las tarifas.
-/// Separado intencionalmente: los peajes tienen su propia clasificación SUTRAN.
-enum TipoVehiculo {
-  camion,
-  camioneta,
-  furgon,
-  tracto,
-  otro;
-
-  String get displayName => switch (this) {
-        TipoVehiculo.camion => 'Camión',
-        TipoVehiculo.camioneta => 'Camioneta',
-        TipoVehiculo.furgon => 'Furgón',
-        TipoVehiculo.tracto => 'Tracto',
-        TipoVehiculo.otro => 'Otro',
-      };
-}
+// NOTE: `TipoVehiculo` is reused from `vehicles/domain/entities/vehicle.dart`
+// (it used to be duplicated here). If tolls ever need their own SUTRAN
+// classification, introduce a separate `TipoVehiculoPeaje` enum.
 
 /// Snapshot de un peaje dentro de un cálculo.
 /// INMUTABLE — refleja el monto en el momento del cálculo.
 /// Aunque la jefa actualice el catálogo después, este snapshot no cambia.
 @freezed
-class TollSnapshot with _$TollSnapshot {
+abstract class TollSnapshot with _$TollSnapshot {
   const factory TollSnapshot({
     required String tollId,           // referencia al catálogo
     required String nombre,

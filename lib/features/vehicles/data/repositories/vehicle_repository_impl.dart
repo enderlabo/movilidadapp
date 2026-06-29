@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/utils/repository_guard.dart';
 import '../../domain/entities/vehicle.dart';
 import '../../domain/repositories/i_vehicle_repository.dart';
 
@@ -13,68 +14,47 @@ class VehicleRepositoryImpl implements IVehicleRepository {
       : _firestore = firestore;
 
   @override
-  Future<Either<Failure, List<Vehicle>>> getVehiculos() async {
-    try {
+  Future<Either<Failure, List<Vehicle>>> getVehiculos() {
+    return guardFuture(() async {
       final snap = await _firestore
           .collection(_collection)
           .where('active', isEqualTo: true)
           .get();
-      return Right(snap.docs.map((d) => _fromDoc(d)).toList());
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      return snap.docs.map(_fromDoc).toList();
+    });
   }
 
   @override
-  Future<Either<Failure, Vehicle>> getVehiculo(String id) async {
-    try {
+  Future<Either<Failure, Vehicle>> getVehiculo(String id) {
+    return guardFuture(() async {
       final doc = await _firestore.collection(_collection).doc(id).get();
-      if (!doc.exists) {
-        return const Left(Failure.database(message: 'Vehicle not found'));
-      }
-      return Right(_fromDoc(doc));
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      if (!doc.exists) throw Exception('Vehicle not found');
+      return _fromDoc(doc);
+    });
   }
 
   @override
-  Future<Either<Failure, Vehicle>> saveVehiculo(Vehicle vehicle) async {
-    try {
-      final data = _toMap(vehicle);
-      await _firestore.collection(_collection).doc(vehicle.id).set(data);
-      return Right(vehicle);
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+  Future<Either<Failure, Vehicle>> saveVehiculo(Vehicle vehicle) {
+    return guardFuture(() async {
+      await _firestore.collection(_collection).doc(vehicle.id).set(_toMap(vehicle));
+      return vehicle;
+    });
   }
 
   @override
-  Future<Either<Failure, Unit>> deleteVehiculo(String id) async {
-    try {
-      await _firestore
-          .collection(_collection)
-          .doc(id)
-          .update({'active': false});
-      return const Right(unit);
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+  Future<Either<Failure, Unit>> deleteVehiculo(String id) {
+    return guardFuture(() async {
+      await _firestore.collection(_collection).doc(id).update({'active': false});
+      return unit;
+    });
   }
 
   @override
   Stream<Either<Failure, List<Vehicle>>> watchVehiculos() {
-    return _firestore
-        .collection(_collection)
-        .where('active', isEqualTo: true)
-        .snapshots()
-        .map<Either<Failure, List<Vehicle>>>((snap) {
-      try {
-        return Right(snap.docs.map(_fromDoc).toList());
-      } catch (e) {
-        return Left(Failure.database(message: e.toString()));
-      }
-    });
+    return guardStream(
+      _firestore.collection(_collection).where('active', isEqualTo: true).snapshots(),
+      (snap) => snap.docs.map(_fromDoc).toList(),
+    );
   }
 
   // ── Firestore serialization ───────────────────────────────────────────────
@@ -94,7 +74,7 @@ class VehicleRepositoryImpl implements IVehicleRepository {
       rendimientoKmPorGalonVacio:
           (m['fuel efficiency empty'] as num? ?? m['rendimientoKmPorGalonVacio'] as num? ?? 38).toDouble(),
       activo: m['active'] as bool? ?? m['activo'] as bool? ?? true,
-      categoria: _categoriaFromString(m['category'] as String? ?? m['categoria'] as String?),
+      categoria: CategoriaVehiculo.fromFirestoreEn(m['category'] as String? ?? m['categoria'] as String?),
     );
   }
 
@@ -106,7 +86,7 @@ class VehicleRepositoryImpl implements IVehicleRepository {
         'fuel efficiency (km-gallon)': v.rendimientoKmPorGalonCargado,
         'fuel efficiency empty': v.rendimientoKmPorGalonVacio,
         'active': v.activo,
-        'category': _categoriaToString(v.categoria),
+        'category': v.categoria.firestoreEn,
       };
 
   static TipoVehiculo _tipoFromString(String s) => switch (s) {
@@ -123,16 +103,5 @@ class VehicleRepositoryImpl implements IVehicleRepository {
         TipoVehiculo.furgon => 'pickup',
         TipoVehiculo.tracto => 'semi',
         TipoVehiculo.otro => 'other',
-      };
-
-  static CategoriaVehiculo _categoriaFromString(String? s) => switch (s) {
-        'small' || 'pequeno' => CategoriaVehiculo.pequeno,
-        'large' || 'grande' => CategoriaVehiculo.grande,
-        _ => CategoriaVehiculo.pequeno,
-      };
-
-  static String _categoriaToString(CategoriaVehiculo c) => switch (c) {
-        CategoriaVehiculo.pequeno => 'small',
-        CategoriaVehiculo.grande => 'large',
       };
 }

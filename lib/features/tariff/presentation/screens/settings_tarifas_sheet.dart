@@ -33,12 +33,12 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
   @override
   void initState() {
     super.initState();
-    final config = ref.read(tarifaConfigNotifierProvider).valueOrNull ??
+    final config = ref.read(tarifaConfigProvider).value ??
         TarifaConfig.defaults;
     _tiempo.text = (config.factorTiempo * 100).toStringAsFixed(0);
     _pesoKg.text = config.tarifaPorKg.toStringAsFixed(2);
 
-    _vehiculos = ref.read(vehiculosProvider).valueOrNull ?? [];
+    _vehiculos = ref.read(vehiculosProvider).value ?? [];
     for (final v in _vehiculos) {
       _vehicleControllers[v.id] = TextEditingController(
         text: config.tarifaPara(v.id).toStringAsFixed(2),
@@ -80,7 +80,7 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
     }
 
     setState(() => _guardando = true);
-    await ref.read(tarifaConfigNotifierProvider.notifier).guardar(
+    await ref.read(tarifaConfigProvider.notifier).guardar(
           TarifaConfig(
             tarifasPorVehiculo: tarifasPorVehiculo,
             tarifaDefault:

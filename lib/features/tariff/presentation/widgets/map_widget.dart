@@ -50,7 +50,7 @@ class _MapWidgetState extends ConsumerState<MapWidget> {
       next.whenOrNull(routesLoaded: _fitRoutes);
     });
 
-    final input = ref.watch(tariffInputNotifierProvider);
+    final input = ref.watch(tariffInputProvider);
 
     // Rutas desde el estado (cuando acaban de cargarse) o desde la caché del
     // notifier (cuando el estado ya pasó a success/loadingTariff).

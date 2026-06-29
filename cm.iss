@@ -30,7 +30,17 @@ DisableProgramGroupPage=yes
 ;PrivilegesRequired=lowest
 OutputBaseFilename=mysetup
 SolidCompression=yes
-WizardStyle=modern dynamic
+WizardStyle=modern
+
+; ── Firma de código (Authenticode) ──────────────────────────────────────────
+; El falso positivo del antivirus se resuelve firmando el instalador (y el .exe).
+; 1) Consigue un certificado OV o EV (Sectigo, DigiCert, etc.).
+; 2) En el IDE de Inno Setup: Tools > Configure Sign Tools… y crea uno llamado
+;    "signtool" con un comando como:
+;       signtool sign /fd sha256 /tr http://timestamp.sectigo.com /td sha256 /a $f
+; 3) Descomenta las dos líneas siguientes para firmar instalador y desinstalador:
+;SignTool=signtool
+;SignedUninstaller=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -39,14 +49,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\cloud_firestore_plugin.lib"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\connectivity_plus_plugin.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\firebase_core_plugin.lib"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\flutter_windows.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\tarifario_movilidad.exp"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\tarifario_movilidad.lib"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copia TODO el contenido de la carpeta Release (exe, todas las DLLs de plugins,
+; WebView2Loader.dll y la carpeta data\). Se excluyen los artefactos del linker
+; (.lib / .exp) que no se necesitan en tiempo de ejecución y solo abultan el
+; instalador. Así nunca falta una DLL al agregar/quitar un plugin.
+Source: "C:\Users\devel\Documents\Developer\movilidadapp\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Excludes: "*.lib,*.exp"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Registry]

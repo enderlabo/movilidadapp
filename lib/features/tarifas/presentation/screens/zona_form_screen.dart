@@ -55,9 +55,9 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.zona != null;
-    final notifierState = ref.watch(zonasNotifierProvider);
+    final notifierState = ref.watch(zonasProvider);
 
-    ref.listen<AsyncValue<void>>(zonasNotifierProvider, (_, next) {
+    ref.listen<AsyncValue<void>>(zonasProvider, (_, next) {
       next.whenOrNull(
         data: (_) => Navigator.of(context).pop(),
         error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
@@ -287,7 +287,7 @@ class _ZonaFormScreenState extends ConsumerState<ZonaFormScreen> {
           _requiereCotizar ? null : double.tryParse(_precioMaxController.text),
     );
 
-    ref.read(zonasNotifierProvider.notifier).guardar(zona);
+    ref.read(zonasProvider.notifier).guardar(zona);
   }
 }
 

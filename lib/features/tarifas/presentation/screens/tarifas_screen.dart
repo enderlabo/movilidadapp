@@ -11,7 +11,7 @@ class TarifasScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tarifasAsync = ref.watch(tarifasStreamProvider);
-    final notifier = ref.read(tarifasNotifierProvider.notifier);
+    final notifier = ref.read(tarifasProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(

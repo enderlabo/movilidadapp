@@ -18,7 +18,9 @@
       "Bash(flutter devices *)",
       "PowerShell(flutter pub *)",
       "PowerShell(flutter build *)",
-      "WebFetch(domain:gpsalarmainteligente.com)"
+      "WebFetch(domain:gpsalarmainteligente.com)",
+      "PowerShell(winget install *)",
+      "Bash(awk '{printf \"%6d KB? bytes=%s  %s\\\\n\",$1, $1, $2}')"
     ]
   }
 }

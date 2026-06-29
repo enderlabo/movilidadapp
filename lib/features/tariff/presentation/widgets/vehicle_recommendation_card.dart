@@ -14,7 +14,7 @@ class VehicleRecommendationCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rec = ref.watch(
-      tariffInputNotifierProvider.select((i) => i.recomendacion),
+      tariffInputProvider.select((i) => i.recomendacion),
     );
     if (rec == null) return const SizedBox.shrink();
 

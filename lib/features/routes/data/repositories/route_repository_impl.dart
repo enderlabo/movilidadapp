@@ -14,14 +14,37 @@ class RouteRepositoryImpl implements IRouteRepository {
 
   RouteRepositoryImpl({required Dio dio}) : _dio = dio;
 
+  /// Centraliza el manejo de errores de las llamadas a Google Maps:
+  /// conexión → [Failure.network], error HTTP → [Failure.mapsApi], resto →
+  /// [Failure.server]. El [body] devuelve el [Either] con los casos de dominio
+  /// (p. ej. "sin rutas") y solo necesita lanzar para los fallos de transporte.
+  Future<Either<Failure, T>> _guardMaps<T>(
+    Future<Either<Failure, T>> Function() body,
+  ) async {
+    try {
+      return await body();
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout) {
+        return const Left(Failure.network());
+      }
+      return Left(Failure.mapsApi(
+        message: e.response?.data?.toString() ?? e.message ?? 'Unknown',
+        statusCode: e.response?.statusCode,
+      ));
+    } catch (e) {
+      return Left(Failure.server(message: e.toString()));
+    }
+  }
+
   // ── Routes (Google Maps Routes API v2) ───────────────────────────────────
 
   @override
   Future<Either<Failure, List<RouteResult>>> getRoutes({
     required Waypoint origen,
     required Waypoint destino,
-  }) async {
-    try {
+  }) {
+    return _guardMaps(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         'https://routes.googleapis.com/directions/v2:computeRoutes',
         options: Options(headers: {
@@ -62,24 +85,14 @@ class RouteRepositoryImpl implements IRouteRepository {
           .map((e) => _parseRoute(e.value as Map<String, dynamic>, e.key))
           .toList();
       return Right(results);
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.connectionTimeout) {
-        return const Left(Failure.network());
-      }
-      return Left(Failure.mapsApi(
-          message: e.response?.data.toString() ?? e.message ?? 'Unknown',
-          statusCode: e.response?.statusCode));
-    } catch (e) {
-      return Left(Failure.server(message: e.toString()));
-    }
+    });
   }
 
   // ── Geocoding ─────────────────────────────────────────────────────────────
 
   @override
-  Future<Either<Failure, Waypoint>> geocodeAddress(String address) async {
-    try {
+  Future<Either<Failure, Waypoint>> geocodeAddress(String address) {
+    return _guardMaps(() async {
       final response = await _dio.get<Map<String, dynamic>>(
         'https://maps.googleapis.com/maps/api/geocode/json',
         queryParameters: {
@@ -108,22 +121,14 @@ class RouteRepositoryImpl implements IRouteRepository {
         lng: (location['lng'] as num).toDouble(),
         distrito: distrito,
       ));
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionError) {
-        return const Left(Failure.network());
-      }
-      return Left(Failure.mapsApi(message: e.message ?? 'Geocoding error'));
-    } catch (e) {
-      return Left(Failure.server(message: e.toString()));
-    }
+    });
   }
 
   // ── Places Autocomplete ───────────────────────────────────────────────────
 
   @override
-  Future<Either<Failure, List<String>>> autocompleteAddress(
-      String input) async {
-    try {
+  Future<Either<Failure, List<String>>> autocompleteAddress(String input) {
+    return _guardMaps(() async {
       final response = await _dio.get<Map<String, dynamic>>(
         'https://maps.googleapis.com/maps/api/place/autocomplete/json',
         queryParameters: {
@@ -154,14 +159,7 @@ class RouteRepositoryImpl implements IRouteRepository {
           .map((p) => p['description'] as String)
           .toList();
       return Right(predictions);
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionError) {
-        return const Left(Failure.network());
-      }
-      return Left(Failure.mapsApi(message: e.message ?? 'Autocomplete error'));
-    } catch (e) {
-      return Left(Failure.server(message: e.toString()));
-    }
+    });
   }
 
   // ── Parsing ───────────────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../../core/error/failures.dart';
+import '../../../../core/utils/async_command.dart';
 import '../../../../injection/injection_container.dart';
 import '../../domain/entities/zona_tarifaria.dart';
 import '../../domain/repositories/i_zona_tarifaria_repository.dart';
@@ -24,33 +23,18 @@ class ZonasNotifier extends _$ZonasNotifier {
   @override
   AsyncValue<void> build() => const AsyncData(null);
 
-  Future<void> guardar(ZonaTarifaria zona) async {
-    state = const AsyncLoading();
-    final result =
-        await ref.read(zonasTarifariaRepoProvider).saveZona(zona);
-    state = result.fold(
-      (f) => AsyncError(f.userMessage, StackTrace.current),
-      (_) => const AsyncData(null),
-    );
-  }
+  Future<void> guardar(ZonaTarifaria zona) => runEitherCommand(
+        () => ref.read(zonasTarifariaRepoProvider).saveZona(zona),
+        setState: (s) => state = s,
+      );
 
-  Future<void> eliminar(String id) async {
-    state = const AsyncLoading();
-    final result =
-        await ref.read(zonasTarifariaRepoProvider).deleteZona(id);
-    state = result.fold(
-      (f) => AsyncError(f.userMessage, StackTrace.current),
-      (_) => const AsyncData(null),
-    );
-  }
+  Future<void> eliminar(String id) => runEitherCommand(
+        () => ref.read(zonasTarifariaRepoProvider).deleteZona(id),
+        setState: (s) => state = s,
+      );
 
-  Future<void> seedDefault() async {
-    state = const AsyncLoading();
-    final result =
-        await ref.read(zonasTarifariaRepoProvider).seedZonasDefault();
-    state = result.fold(
-      (f) => AsyncError(f.userMessage, StackTrace.current),
-      (_) => const AsyncData(null),
-    );
-  }
+  Future<void> seedDefault() => runEitherCommand(
+        () => ref.read(zonasTarifariaRepoProvider).seedZonasDefault(),
+        setState: (s) => state = s,
+      );
 }

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/utils/repository_guard.dart';
 import '../../domain/entities/zona_tarifaria.dart';
 import '../../domain/repositories/i_zona_tarifaria_repository.dart';
 
@@ -109,61 +110,45 @@ class ZonaTarifariaRepositoryImpl implements IZonaTarifariaRepository {
 
   @override
   Stream<Either<Failure, List<ZonaTarifaria>>> watchZonas() {
-    return _firestore
-        .collection(_col)
-        .where('active', isEqualTo: true)
-        .snapshots()
-        .map<Either<Failure, List<ZonaTarifaria>>>((snap) {
-      try {
-        final list = snap.docs.map(_fromDoc).toList()
-          ..sort((a, b) => a.zona.compareTo(b.zona));
-        return Right(list);
-      } catch (e) {
-        return Left(Failure.database(message: e.toString()));
-      }
-    });
+    return guardStream(
+      _firestore.collection(_col).where('active', isEqualTo: true).snapshots(),
+      (snap) => snap.docs.map(_fromDoc).toList()
+        ..sort((a, b) => a.zona.compareTo(b.zona)),
+    );
   }
 
   @override
-  Future<Either<Failure, List<ZonaTarifaria>>> getZonas() async {
-    try {
+  Future<Either<Failure, List<ZonaTarifaria>>> getZonas() {
+    return guardFuture(() async {
       final snap = await _firestore
           .collection(_col)
           .where('active', isEqualTo: true)
           .get();
-      final list = snap.docs.map(_fromDoc).toList()
+      return snap.docs.map(_fromDoc).toList()
         ..sort((a, b) => a.zona.compareTo(b.zona));
-      return Right(list);
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+    });
   }
 
   @override
-  Future<Either<Failure, ZonaTarifaria>> saveZona(ZonaTarifaria zona) async {
-    try {
+  Future<Either<Failure, ZonaTarifaria>> saveZona(ZonaTarifaria zona) {
+    return guardFuture(() async {
       final id = zona.id.isEmpty ? const Uuid().v4() : zona.id;
-      final data = _toMap(zona.copyWith(id: id));
-      await _firestore.collection(_col).doc(id).set(data);
-      return Right(zona.copyWith(id: id));
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      await _firestore.collection(_col).doc(id).set(_toMap(zona.copyWith(id: id)));
+      return zona.copyWith(id: id);
+    });
   }
 
   @override
-  Future<Either<Failure, Unit>> deleteZona(String id) async {
-    try {
+  Future<Either<Failure, Unit>> deleteZona(String id) {
+    return guardFuture(() async {
       await _firestore.collection(_col).doc(id).update({'active': false});
-      return const Right(unit);
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      return unit;
+    });
   }
 
   @override
-  Future<Either<Failure, Unit>> seedZonasDefault() async {
-    try {
+  Future<Either<Failure, Unit>> seedZonasDefault() {
+    return guardFuture(() async {
       // Check which zones already exist
       final existing = await _firestore.collection(_col).get();
       final existingZones = existing.docs
@@ -192,10 +177,8 @@ class ZonaTarifariaRepositoryImpl implements IZonaTarifariaRepository {
         });
       }
       await batch.commit();
-      return const Right(unit);
-    } catch (e) {
-      return Left(Failure.database(message: e.toString()));
-    }
+      return unit;
+    });
   }
 
   ZonaTarifaria _fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {

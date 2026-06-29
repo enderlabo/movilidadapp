@@ -4,7 +4,7 @@ import '../../../vehicles/domain/entities/vehicle.dart';
 part 'tarifa_zona.freezed.dart';
 
 @freezed
-class TarifaZona with _$TarifaZona {
+abstract class TarifaZona with _$TarifaZona {
   const factory TarifaZona({
     required String id,
     required String distritoOrigen,

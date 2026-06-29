@@ -5,7 +5,7 @@ part 'failures.freezed.dart';
 /// Jerarquía de fallos del dominio.
 /// Nunca se lanzan excepciones fuera de la capa de datos — todo es [Either<Failure, T>].
 @freezed
-class Failure with _$Failure {
+sealed class Failure with _$Failure {
   // Red
   const factory Failure.network({
     @Default('Sin conexión a internet') String message,
